@@ -10,10 +10,10 @@ import HelpModal from './components/HelpModal.vue'
 import AuthModal from './components/AuthModal.vue'
 import UserProfile from './components/UserProfile.vue'
 import Leaderboard from './components/Leaderboard.vue'
-import puzzledGrooveUrl from '../assets/puzzled_groove.mp3'
-import sudokuSerenadeUrl from '../assets/sudoku_serenade.mp3'
 import type { AIDifficulty } from './game/AIPlayer'
 import type { Player } from '../../shared/types'
+import { NativeAudio } from '@capacitor-community/native-audio'
+import { Capacitor } from '@capacitor/core'
 
 // Splash screen state
 const showSplash = ref(true)
@@ -34,30 +34,45 @@ const userStats = useStats()
 // Game mode: 'online' or 'offline'
 const gameMode = ref<'online' | 'offline'>('online')
 
-// Audio refs
-const splashAudio = ref<HTMLAudioElement | null>(null)
-const gameAudio = ref<HTMLAudioElement | null>(null)
+// Audio state
 const isMuted = ref(false)
 const isAudioInitialized = ref(false)
+const isCapacitor = Capacitor.isNativePlatform()
 
-onMounted(() => {
-  // Create audio elements
-  splashAudio.value = new Audio(puzzledGrooveUrl)
-  gameAudio.value = new Audio(sudokuSerenadeUrl)
+// Audio IDs for NativeAudio
+const SPLASH_AUDIO_ID = 'splash_music'
+const GAME_AUDIO_ID = 'game_music'
 
-  // Set audio properties
-  if (splashAudio.value) {
-    splashAudio.value.loop = true
-    splashAudio.value.volume = 0.5
+onMounted(async () => {
+  // Preload audio using NativeAudio
+  if (isCapacitor) {
+    try {
+      await NativeAudio.preload({
+        assetId: SPLASH_AUDIO_ID,
+        assetPath: 'public/assets/puzzled_groove.mp3',
+        audioChannelNum: 1,
+        isUrl: false,
+        volume: 0.5
+      })
+
+      await NativeAudio.preload({
+        assetId: GAME_AUDIO_ID,
+        assetPath: 'public/assets/sudoku_serenade.mp3',
+        audioChannelNum: 1,
+        isUrl: false,
+        volume: 0.5
+      })
+
+      // Auto-play splash music
+      await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+      isAudioInitialized.value = true
+    } catch (error) {
+      console.log('Native audio initialization error:', error)
+    }
+  } else {
+    // Fallback to HTML5 Audio for web
+    // (keep existing web implementation if needed)
   }
-
-  if (gameAudio.value) {
-    gameAudio.value.loop = true
-    gameAudio.value.volume = 0.5
-  }
-
-  // Try to autoplay (will fail on most browsers)
-  initializeAudio()
 
   // Hide splash screen after 3 seconds
   setTimeout(() => {
@@ -65,50 +80,36 @@ onMounted(() => {
   }, 3000)
 })
 
-const initializeAudio = () => {
-  if (!isAudioInitialized.value && splashAudio.value) {
-    splashAudio.value.play()
-      .then(() => {
-        isAudioInitialized.value = true
-        isMuted.value = false
-      })
-      .catch(() => {
-        // Autoplay blocked - user needs to click the unmute button
-        isMuted.value = true
-      })
-  }
-}
+const toggleMute = async () => {
+  isMuted.value = !isMuted.value
 
-const toggleMute = () => {
-  if (!isAudioInitialized.value) {
-    // First time clicking - initialize audio
-    initializeAudio()
-  } else {
-    // Toggle mute
-    isMuted.value = !isMuted.value
+  if (!isCapacitor) return
 
+  try {
     if (isMuted.value) {
-      splashAudio.value?.pause()
-      gameAudio.value?.pause()
+      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID })
+      await NativeAudio.stop({ assetId: GAME_AUDIO_ID })
     } else {
       if (gameStatus.value === 'playing') {
-        gameAudio.value?.play()
+        await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
       } else {
-        splashAudio.value?.play()
+        await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
       }
     }
+  } catch (error) {
+    console.log('Toggle mute error:', error)
   }
 }
 
-onUnmounted(() => {
-  // Clean up audio
-  if (splashAudio.value) {
-    splashAudio.value.pause()
-    splashAudio.value = null
-  }
-  if (gameAudio.value) {
-    gameAudio.value.pause()
-    gameAudio.value = null
+onUnmounted(async () => {
+  // Clean up native audio
+  if (isCapacitor) {
+    try {
+      await NativeAudio.unload({ assetId: SPLASH_AUDIO_ID })
+      await NativeAudio.unload({ assetId: GAME_AUDIO_ID })
+    } catch (error) {
+      console.log('Audio cleanup error:', error)
+    }
   }
 })
 
@@ -246,7 +247,7 @@ const handleUpdateUsername = async (username: string) => {
 }
 
 // Leave game handler
-const handleLeaveGame = () => {
+const handleLeaveGame = async () => {
   if (gameMode.value === 'online') {
     onlineGame.resetGame()
   } else {
@@ -254,6 +255,28 @@ const handleLeaveGame = () => {
   }
   // Reset game mode
   gameMode.value = 'online'
+
+  // Restart splash music from beginning
+  if (isCapacitor && !isMuted.value) {
+    try {
+      // Stop game music first
+      await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+
+      // Stop splash music first before unloading
+      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+      await NativeAudio.unload({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+      await NativeAudio.preload({
+        assetId: SPLASH_AUDIO_ID,
+        assetPath: 'public/assets/puzzled_groove.mp3',
+        audioChannelNum: 1,
+        isUrl: false,
+        volume: 0.5
+      })
+      await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+    } catch (error) {
+      console.log('Leave game music restart error:', error)
+    }
+  }
 }
 
 // Force reset (clear everything including localStorage)
@@ -318,59 +341,87 @@ watch(currentTurn, (newTurn) => {
   previousTurn.value = newTurn
 })
 
-// Watch for game status changes to switch music
-watch(gameStatus, (newStatus) => {
-  if (newStatus === 'playing' && !isMuted.value) {
-    // Stop splash music and start game music
-    if (splashAudio.value) {
-      splashAudio.value.pause()
-    }
+// Track current playing audio to prevent restarts
+let currentPlayingStatus = ref<string | null>(null)
 
-    // Start game music
-    if (gameAudio.value) {
-      gameAudio.value.currentTime = 0
-      gameAudio.value.volume = 0.5
-      gameAudio.value.play().catch(err => console.log('Game audio play error:', err))
-    }
-  } else if (newStatus === 'finished') {
-    // Fade out game music and start splash music (upbeat)
-    if (!isMuted.value && gameAudio.value) {
-      const fadeOut = setInterval(() => {
-        if (gameAudio.value && gameAudio.value.volume > 0.05) {
-          gameAudio.value.volume -= 0.05
-        } else {
-          if (gameAudio.value) {
-            gameAudio.value.pause()
-            gameAudio.value.volume = 0.5
-          }
-          clearInterval(fadeOut)
+// Watch for game starting to fade out splash music (online games)
+watch(() => onlineGame.gameStarting.value, async (isStarting) => {
+  if (!isStarting || !isCapacitor || isMuted.value) return
 
-          // Start splash music (upbeat)
-          if (splashAudio.value && !isMuted.value) {
-            splashAudio.value.currentTime = 0
-            splashAudio.value.play().catch(err => console.log('Splash audio play error:', err))
-          }
-        }
-      }, 100)
-    }
+  // Fade out splash music over 500ms
+  let currentVolume = 0.5
+  const fadeSteps = 10
+  const fadeInterval = 50 // 50ms * 10 = 500ms
+  const volumeStep = 0.5 / fadeSteps
 
-    // Show end button after animation delay (2 seconds)
-    setTimeout(() => {
-      showEndButton.value = true
-    }, 2000)
-  } else if (newStatus === 'waiting') {
-    // When going back to waiting (e.g., leaving a game), switch to splash music
-    if (!isMuted.value) {
-      if (gameAudio.value) {
-        gameAudio.value.pause()
-        gameAudio.value.currentTime = 0
-        gameAudio.value.volume = 0.5
+  for (let i = 0; i < fadeSteps; i++) {
+    currentVolume -= volumeStep
+    try {
+      await NativeAudio.setVolume({
+        assetId: SPLASH_AUDIO_ID,
+        volume: Math.max(0, currentVolume)
+      })
+      await new Promise(resolve => setTimeout(resolve, fadeInterval))
+    } catch (error) {
+      console.log('Fade out error:', error)
+      break
+    }
+  }
+})
+
+// Watch for game status changes to switch music using NativeAudio
+watch(gameStatus, async (newStatus, oldStatus) => {
+  // Prevent re-triggering if status hasn't actually changed
+  if (newStatus === oldStatus) {
+    return
+  }
+
+  if (!isCapacitor || isMuted.value) return
+
+  try {
+    if (newStatus === 'playing') {
+      currentPlayingStatus.value = 'playing'
+      // Stop and unload splash music, then reset volume for next time
+      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+      await NativeAudio.setVolume({ assetId: SPLASH_AUDIO_ID, volume: 0.5 }).catch(() => {})
+
+      // Stop game music first, then restart from beginning by unloading and reloading
+      await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+      await NativeAudio.unload({ assetId: GAME_AUDIO_ID }).catch(() => {})
+      await NativeAudio.preload({
+        assetId: GAME_AUDIO_ID,
+        assetPath: 'public/assets/sudoku_serenade.mp3',
+        audioChannelNum: 1,
+        isUrl: false,
+        volume: 0.5
+      })
+      await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+    } else if (newStatus === 'finished' || newStatus === 'waiting') {
+      currentPlayingStatus.value = newStatus
+      // Stop game music first before unloading
+      await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+
+      // Stop splash music first, then restart from beginning by unloading and reloading
+      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+      await NativeAudio.unload({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+      await NativeAudio.preload({
+        assetId: SPLASH_AUDIO_ID,
+        assetPath: 'public/assets/puzzled_groove.mp3',
+        audioChannelNum: 1,
+        isUrl: false,
+        volume: 0.5
+      })
+      await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+
+      if (newStatus === 'finished') {
+        // Show end button after animation delay (2 seconds)
+        setTimeout(() => {
+          showEndButton.value = true
+        }, 2000)
       }
-      if (splashAudio.value) {
-        splashAudio.value.currentTime = 0
-        splashAudio.value.play().catch(err => console.log('Splash audio play error:', err))
-      }
     }
+  } catch (error) {
+    console.log('Music switch error:', error)
   }
 })
 </script>
@@ -391,7 +442,7 @@ watch(gameStatus, (newStatus) => {
   </div>
 
   <!-- Top Bar Buttons (only show on home page) -->
-  <div v-if="!showSplash && !isPlaying && !isFinished" class="fixed top-4 left-4 z-50 flex gap-2">
+  <div v-if="!showSplash && !isPlaying && !isFinished" class="fixed top-[54px] left-4 z-50 flex gap-2">
     <!-- Leaderboard Button -->
     <button
       @click="showLeaderboard = true"
@@ -424,7 +475,7 @@ watch(gameStatus, (newStatus) => {
   <button
     v-if="!showSplash && !isPlaying && !isFinished"
     @click="showHelp = true"
-    class="fixed top-4 right-20 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    class="fixed top-[54px] right-20 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     title="Help & Rules"
   >
     <span class="text-2xl">❓</span>
@@ -434,7 +485,7 @@ watch(gameStatus, (newStatus) => {
   <button
     v-if="!showSplash && !isPlaying && !isFinished"
     @click="toggleMute"
-    class="fixed top-4 right-4 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    class="fixed top-[54px] right-4 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     :title="isMuted ? 'Unmute Music' : 'Mute Music'"
   >
     <span v-if="isMuted" class="text-2xl">🔇</span>
@@ -444,7 +495,7 @@ watch(gameStatus, (newStatus) => {
   <!-- Profile Dropdown -->
   <div
     v-if="showProfileDropdown && auth.profile.value"
-    class="fixed top-20 left-4 z-50 w-80"
+    class="fixed top-[118px] left-4 z-50 w-80"
   >
     <UserProfile
       :profile="auth.profile.value"
@@ -560,7 +611,7 @@ watch(gameStatus, (newStatus) => {
           <button
             v-if="isPlaying || isWaiting"
             @click="handleLeaveGame"
-            class="fixed bottom-4 right-4 z-50 bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all hover:scale-105 text-sm"
+            class="fixed bottom-[66px] right-4 z-50 bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all hover:scale-105 text-sm"
             title="Leave Game"
           >
             🚪 Leave Game

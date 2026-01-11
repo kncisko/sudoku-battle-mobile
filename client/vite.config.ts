@@ -5,5 +5,11 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    minify: 'esbuild',
+    sourcemap: false
   }
 })

@@ -33,8 +33,8 @@ onMounted(() => {
     playerName.value = props.authenticatedUsername
   }
 
-  // Auto-focus the name input
-  if (nameInput.value) {
+  // Auto-focus the name input only on desktop (not on mobile to avoid keyboard popup)
+  if (nameInput.value && window.innerWidth > 768) {
     nameInput.value.focus()
     nameInput.value.select()
   }

@@ -1,0 +1,18 @@
+{
+  "resources": {
+    "icon": {
+      "sources": ["assets/SudokuIcon.png"],
+      "targets": {
+        "ios": true,
+        "android": true
+      }
+    },
+    "splash": {
+      "sources": ["assets/FullSplash.png"],
+      "targets": {
+        "ios": true,
+        "android": true
+      }
+    }
+  }
+}

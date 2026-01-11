@@ -31,3 +31,22 @@ dist-ssr
 # Keep example files
 !.env.example
 !.env.production
+
+# Capacitor
+.capacitor
+capacitor.config.json
+
+# iOS
+ios/App/Pods
+ios/App/App/public
+ios/App/App/capacitor.config.json
+*.xcworkspace
+*.xcuserdata
+
+# Android
+android/app/build
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+android/.gradle
+android/build
+android/local.properties

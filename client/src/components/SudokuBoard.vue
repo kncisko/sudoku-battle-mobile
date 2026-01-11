@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import type { SudokuBoard, Player } from '../../../shared/types'
-import clickSoundUrl from '../../assets/soundfx/click.wav?url'
-import windUpSoundUrl from '../../assets/soundfx/AA_WindUp.wav?url'
-import dingSoundUrl from '../../assets/soundfx/ding.wav?url'
+import { NativeAudio } from '@capacitor-community/native-audio'
+import { Capacitor } from '@capacitor/core'
 
 interface Props {
   board: SudokuBoard | null
@@ -23,52 +22,88 @@ const emit = defineEmits<{
 const selectedCell = ref<{ row: number; col: number } | null>(null)
 const showNumberPad = ref(false)
 
-// Audio for click sound
-const clickSound = ref<HTMLAudioElement | null>(null)
-const windUpSound = ref<HTMLAudioElement | null>(null)
-const dingSound = ref<HTMLAudioElement | null>(null)
+// Native Audio IDs
+const CLICK_SOUND_ID = 'click_sound'
+const WINDUP_SOUND_ID = 'windup_sound'
+const DING_SOUND_ID = 'ding_sound'
 
-onMounted(() => {
-  // Initialize click sound
-  clickSound.value = new Audio(clickSoundUrl)
-  clickSound.value.volume = 0.3 // Subtle volume
+const isCapacitor = Capacitor.isNativePlatform()
 
-  // Initialize wind-up sound for tile flip (wrong guess)
-  windUpSound.value = new Audio(windUpSoundUrl)
-  windUpSound.value.volume = 0.4 // Slightly louder for effect
+onMounted(async () => {
+  if (isCapacitor) {
+    try {
+      // Preload sound effects with NativeAudio
+      await NativeAudio.preload({
+        assetId: CLICK_SOUND_ID,
+        assetPath: 'public/assets/soundfx/click.wav',
+        audioChannelNum: 5,
+        isUrl: false,
+        volume: 0.3
+      })
 
-  // Initialize ding sound for correct guess
-  dingSound.value = new Audio(dingSoundUrl)
-  dingSound.value.volume = 0.5 // Clear and audible
+      await NativeAudio.preload({
+        assetId: WINDUP_SOUND_ID,
+        assetPath: 'public/assets/soundfx/AA_WindUp.wav',
+        audioChannelNum: 2,
+        isUrl: false,
+        volume: 0.4
+      })
+
+      await NativeAudio.preload({
+        assetId: DING_SOUND_ID,
+        assetPath: 'public/assets/soundfx/ding.wav',
+        audioChannelNum: 5,
+        isUrl: false,
+        volume: 0.5
+      })
+    } catch (error) {
+      console.log('Sound effects preload error:', error)
+    }
+  }
+})
+
+onUnmounted(async () => {
+  if (isCapacitor) {
+    try {
+      await NativeAudio.unload({ assetId: CLICK_SOUND_ID })
+      await NativeAudio.unload({ assetId: WINDUP_SOUND_ID })
+      await NativeAudio.unload({ assetId: DING_SOUND_ID })
+    } catch (error) {
+      console.log('Sound effects cleanup error:', error)
+    }
+  }
 })
 
 // Play click sound
-const playClickSound = () => {
-  if (clickSound.value) {
-    clickSound.value.currentTime = 0 // Reset to start for rapid clicks
-    clickSound.value.play().catch(() => {
-      // Ignore autoplay errors (browser restrictions)
-    })
+const playClickSound = async () => {
+  if (isCapacitor) {
+    try {
+      await NativeAudio.play({ assetId: CLICK_SOUND_ID })
+    } catch (error) {
+      // Ignore
+    }
   }
 }
 
 // Play wind-up sound for tile flip
-const playWindUpSound = () => {
-  if (windUpSound.value) {
-    windUpSound.value.currentTime = 0
-    windUpSound.value.play().catch(() => {
-      // Ignore autoplay errors (browser restrictions)
-    })
+const playWindUpSound = async () => {
+  if (isCapacitor) {
+    try {
+      await NativeAudio.play({ assetId: WINDUP_SOUND_ID })
+    } catch (error) {
+      // Ignore
+    }
   }
 }
 
 // Play ding sound for correct guess
-const playDingSound = () => {
-  if (dingSound.value) {
-    dingSound.value.currentTime = 0
-    dingSound.value.play().catch(() => {
-      // Ignore autoplay errors (browser restrictions)
-    })
+const playDingSound = async () => {
+  if (isCapacitor) {
+    try {
+      await NativeAudio.play({ assetId: DING_SOUND_ID })
+    } catch (error) {
+      // Ignore
+    }
   }
 }
 
