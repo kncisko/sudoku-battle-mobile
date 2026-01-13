@@ -309,7 +309,14 @@ const handleLeaveGame = async () => {
       // iOS - Use NativeAudio
       try {
         await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
-        await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+        await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+
+        // Play once to start from beginning, then loop
+        await NativeAudio.play({ assetId: SPLASH_AUDIO_ID })
+        setTimeout(async () => {
+          await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+          await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+        }, 100)
       } catch (error) {
         console.log('iOS leave game music restart error:', error)
       }
@@ -435,18 +442,34 @@ watch(gameStatus, async (newStatus, oldStatus) => {
         console.log('iOS: Switching to game music')
         await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
         await NativeAudio.setVolume({ assetId: SPLASH_AUDIO_ID, volume: 0.5 }).catch(() => {})
+        await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
 
-        console.log('iOS: Starting game music loop')
-        await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
-        console.log('iOS: Game music loop started')
+        // Play once to start from beginning, then loop
+        console.log('iOS: Playing game music from beginning')
+        await NativeAudio.play({ assetId: GAME_AUDIO_ID })
+        // Wait a moment for play to start, then switch to loop mode
+        setTimeout(async () => {
+          await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+          await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+          console.log('iOS: Game music now looping')
+        }, 100)
+        console.log('iOS: Game music started')
       } else if (newStatus === 'finished' || newStatus === 'waiting') {
         currentPlayingStatus.value = newStatus
         console.log('iOS: Switching back to splash music')
         await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+        await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
 
-        console.log('iOS: Starting splash music loop')
-        await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
-        console.log('iOS: Splash music loop started')
+        // Play once to start from beginning, then loop
+        console.log('iOS: Playing splash music from beginning')
+        await NativeAudio.play({ assetId: SPLASH_AUDIO_ID })
+        // Wait a moment for play to start, then switch to loop mode
+        setTimeout(async () => {
+          await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+          await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+          console.log('iOS: Splash music now looping')
+        }, 100)
+        console.log('iOS: Splash music started')
 
         if (newStatus === 'finished') {
           setTimeout(() => {
