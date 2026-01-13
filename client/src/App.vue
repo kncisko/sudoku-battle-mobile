@@ -38,18 +38,35 @@ const gameMode = ref<'online' | 'offline'>('online')
 const isMuted = ref(false)
 const isAudioInitialized = ref(false)
 const isCapacitor = Capacitor.isNativePlatform()
+const isIOS = Capacitor.getPlatform() === 'ios'
 
-// Audio IDs for NativeAudio
+// HTML5 Audio elements for background music (Android only)
+// NativeAudio.loop() is broken on Android, so we use HTML5 Audio there
+let splashAudio: HTMLAudioElement | null = null
+let gameAudio: HTMLAudioElement | null = null
+
+// Audio IDs for NativeAudio (iOS only)
 const SPLASH_AUDIO_ID = 'splash_music'
 const GAME_AUDIO_ID = 'game_music'
+// iOS requires MP3, Android uses OGG
+const SPLASH_AUDIO_PATH = 'public/assets/puzzled_groove.mp3'
+const GAME_AUDIO_PATH = 'public/assets/sudoku_serenade.mp3'
 
 onMounted(async () => {
-  // Preload audio using NativeAudio
-  if (isCapacitor) {
+  // Hide splash screen after 3 seconds (start this immediately)
+  setTimeout(() => {
+    showSplash.value = false
+  }, 3000)
+
+  // Initialize audio based on platform
+  // iOS: Use NativeAudio (works perfectly)
+  // Android: Use HTML5 Audio (NativeAudio.loop() is broken)
+  if (isIOS && isCapacitor) {
+    // iOS - Use NativeAudio (original working implementation)
     try {
       await NativeAudio.preload({
         assetId: SPLASH_AUDIO_ID,
-        assetPath: 'public/assets/puzzled_groove.mp3',
+        assetPath: SPLASH_AUDIO_PATH,
         audioChannelNum: 1,
         isUrl: false,
         volume: 0.5
@@ -57,58 +74,88 @@ onMounted(async () => {
 
       await NativeAudio.preload({
         assetId: GAME_AUDIO_ID,
-        assetPath: 'public/assets/sudoku_serenade.mp3',
+        assetPath: GAME_AUDIO_PATH,
         audioChannelNum: 1,
         isUrl: false,
         volume: 0.5
       })
 
-      // Auto-play splash music
       await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
       isAudioInitialized.value = true
     } catch (error) {
-      console.log('Native audio initialization error:', error)
+      console.log('iOS audio initialization error:', error)
     }
   } else {
-    // Fallback to HTML5 Audio for web
-    // (keep existing web implementation if needed)
-  }
+    // Android or Web - Use HTML5 Audio
+    try {
+      splashAudio = new Audio('/assets/puzzled_groove.ogg')
+      splashAudio.loop = true
+      splashAudio.volume = 0.5
 
-  // Hide splash screen after 3 seconds
-  setTimeout(() => {
-    showSplash.value = false
-  }, 3000)
+      gameAudio = new Audio('/assets/sudoku_serenade.ogg')
+      gameAudio.loop = true
+      gameAudio.volume = 0.5
+
+      await splashAudio.play()
+      isAudioInitialized.value = true
+    } catch (error) {
+      console.log('HTML5 audio initialization error:', error)
+    }
+  }
 })
 
 const toggleMute = async () => {
   isMuted.value = !isMuted.value
 
-  if (!isCapacitor) return
-
-  try {
+  if (isIOS && isCapacitor) {
+    // iOS - Use NativeAudio
+    try {
+      if (isMuted.value) {
+        await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID })
+        await NativeAudio.stop({ assetId: GAME_AUDIO_ID })
+      } else {
+        if (gameStatus.value === 'playing') {
+          await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+        } else {
+          await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+        }
+      }
+    } catch (error) {
+      console.log('iOS toggle mute error:', error)
+    }
+  } else {
+    // Android - Use HTML5 Audio
     if (isMuted.value) {
-      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID })
-      await NativeAudio.stop({ assetId: GAME_AUDIO_ID })
+      splashAudio?.pause()
+      gameAudio?.pause()
     } else {
       if (gameStatus.value === 'playing') {
-        await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+        gameAudio?.play()
       } else {
-        await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+        splashAudio?.play()
       }
     }
-  } catch (error) {
-    console.log('Toggle mute error:', error)
   }
 }
 
 onUnmounted(async () => {
-  // Clean up native audio
-  if (isCapacitor) {
+  if (isIOS && isCapacitor) {
+    // iOS - Clean up NativeAudio
     try {
       await NativeAudio.unload({ assetId: SPLASH_AUDIO_ID })
       await NativeAudio.unload({ assetId: GAME_AUDIO_ID })
     } catch (error) {
-      console.log('Audio cleanup error:', error)
+      console.log('iOS audio cleanup error:', error)
+    }
+  } else {
+    // Android - Clean up HTML5 Audio
+    if (splashAudio) {
+      splashAudio.pause()
+      splashAudio = null
+    }
+    if (gameAudio) {
+      gameAudio.pause()
+      gameAudio = null
     }
   }
 })
@@ -256,25 +303,23 @@ const handleLeaveGame = async () => {
   // Reset game mode
   gameMode.value = 'online'
 
-  // Restart splash music from beginning
-  if (isCapacitor && !isMuted.value) {
-    try {
-      // Stop game music first
-      await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
-
-      // Stop splash music first before unloading
-      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
-      await NativeAudio.unload({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
-      await NativeAudio.preload({
-        assetId: SPLASH_AUDIO_ID,
-        assetPath: 'public/assets/puzzled_groove.mp3',
-        audioChannelNum: 1,
-        isUrl: false,
-        volume: 0.5
-      })
-      await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
-    } catch (error) {
-      console.log('Leave game music restart error:', error)
+  // Switch back to splash music
+  if (!isMuted.value) {
+    if (isIOS && isCapacitor) {
+      // iOS - Use NativeAudio
+      try {
+        await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+        await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+      } catch (error) {
+        console.log('iOS leave game music restart error:', error)
+      }
+    } else {
+      // Android - Use HTML5 Audio
+      gameAudio?.pause()
+      if (splashAudio) {
+        splashAudio.currentTime = 0
+        splashAudio.play()
+      }
     }
   }
 }
@@ -346,7 +391,7 @@ let currentPlayingStatus = ref<string | null>(null)
 
 // Watch for game starting to fade out splash music (online games)
 watch(() => onlineGame.gameStarting.value, async (isStarting) => {
-  if (!isStarting || !isCapacitor || isMuted.value) return
+  if (!isStarting || isMuted.value) return
 
   // Fade out splash music over 500ms
   let currentVolume = 0.5
@@ -356,72 +401,88 @@ watch(() => onlineGame.gameStarting.value, async (isStarting) => {
 
   for (let i = 0; i < fadeSteps; i++) {
     currentVolume -= volumeStep
-    try {
-      await NativeAudio.setVolume({
-        assetId: SPLASH_AUDIO_ID,
-        volume: Math.max(0, currentVolume)
-      })
-      await new Promise(resolve => setTimeout(resolve, fadeInterval))
-    } catch (error) {
-      console.log('Fade out error:', error)
-      break
+    if (isIOS && isCapacitor) {
+      // iOS - Use NativeAudio
+      try {
+        await NativeAudio.setVolume({
+          assetId: SPLASH_AUDIO_ID,
+          volume: Math.max(0, currentVolume)
+        })
+      } catch (error) {
+        break
+      }
+    } else {
+      // Android - Use HTML5 Audio
+      if (splashAudio) {
+        splashAudio.volume = Math.max(0, currentVolume)
+      }
     }
+    await new Promise(resolve => setTimeout(resolve, fadeInterval))
   }
 })
 
-// Watch for game status changes to switch music using NativeAudio
+// Watch for game status changes to switch music
 watch(gameStatus, async (newStatus, oldStatus) => {
   // Prevent re-triggering if status hasn't actually changed
-  if (newStatus === oldStatus) {
-    return
-  }
+  if (newStatus === oldStatus) return
+  if (isMuted.value) return
 
-  if (!isCapacitor || isMuted.value) return
+  if (isIOS && isCapacitor) {
+    // iOS - Use NativeAudio
+    try {
+      if (newStatus === 'playing') {
+        currentPlayingStatus.value = 'playing'
+        console.log('iOS: Switching to game music')
+        await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+        await NativeAudio.setVolume({ assetId: SPLASH_AUDIO_ID, volume: 0.5 }).catch(() => {})
 
-  try {
+        console.log('iOS: Starting game music loop')
+        await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+        console.log('iOS: Game music loop started')
+      } else if (newStatus === 'finished' || newStatus === 'waiting') {
+        currentPlayingStatus.value = newStatus
+        console.log('iOS: Switching back to splash music')
+        await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+
+        console.log('iOS: Starting splash music loop')
+        await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+        console.log('iOS: Splash music loop started')
+
+        if (newStatus === 'finished') {
+          setTimeout(() => {
+            showEndButton.value = true
+          }, 2000)
+        }
+      }
+    } catch (error) {
+      console.log('iOS music switch error:', error)
+    }
+  } else {
+    // Android - Use HTML5 Audio
     if (newStatus === 'playing') {
       currentPlayingStatus.value = 'playing'
-      // Stop and unload splash music, then reset volume for next time
-      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
-      await NativeAudio.setVolume({ assetId: SPLASH_AUDIO_ID, volume: 0.5 }).catch(() => {})
+      splashAudio?.pause()
+      if (splashAudio) splashAudio.volume = 0.5
 
-      // Stop game music first, then restart from beginning by unloading and reloading
-      await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
-      await NativeAudio.unload({ assetId: GAME_AUDIO_ID }).catch(() => {})
-      await NativeAudio.preload({
-        assetId: GAME_AUDIO_ID,
-        assetPath: 'public/assets/sudoku_serenade.mp3',
-        audioChannelNum: 1,
-        isUrl: false,
-        volume: 0.5
-      })
-      await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+      if (gameAudio) {
+        gameAudio.currentTime = 0
+        gameAudio.play()
+      }
     } else if (newStatus === 'finished' || newStatus === 'waiting') {
       currentPlayingStatus.value = newStatus
-      // Stop game music first before unloading
-      await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+      gameAudio?.pause()
 
-      // Stop splash music first, then restart from beginning by unloading and reloading
-      await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
-      await NativeAudio.unload({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
-      await NativeAudio.preload({
-        assetId: SPLASH_AUDIO_ID,
-        assetPath: 'public/assets/puzzled_groove.mp3',
-        audioChannelNum: 1,
-        isUrl: false,
-        volume: 0.5
-      })
-      await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+      if (splashAudio) {
+        splashAudio.currentTime = 0
+        splashAudio.play()
+      }
 
       if (newStatus === 'finished') {
-        // Show end button after animation delay (2 seconds)
         setTimeout(() => {
           showEndButton.value = true
         }, 2000)
       }
     }
-  } catch (error) {
-    console.log('Music switch error:', error)
   }
 })
 </script>

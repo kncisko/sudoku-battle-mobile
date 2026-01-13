@@ -229,8 +229,13 @@ const closeNumberPad = () => {
           <div
             v-for="(cell, colIndex) in row"
             :key="`cell-${rowIndex}-${colIndex}`"
-            class="relative flex items-center justify-center w-12 h-12 border border-gray-400 transition-all duration-200"
-            :style="{ backgroundColor: getCellBgColor(cell.lockedBy, rowIndex, colIndex) }"
+            class="sudoku-cell relative flex items-center justify-center w-12 h-12 border border-gray-400 transition-all duration-200"
+            :style="{
+              '--cell-bg': getCellBgColor(cell.lockedBy, rowIndex, colIndex),
+              '--cell-color': getTextColor(cell.lockedBy),
+              backgroundColor: 'var(--cell-bg)',
+              color: 'var(--cell-color)'
+            }"
             :class="[
               getCellAnimationClass(rowIndex, colIndex),
               isRightBorder(colIndex) ? 'border-r-2 border-r-gray-800' : '',
@@ -244,7 +249,6 @@ const closeNumberPad = () => {
             <span
               v-if="cell.value"
               class="text-xl font-bold select-none"
-              :style="{ color: getTextColor(cell.lockedBy) }"
             >
               {{ cell.value }}
             </span>
