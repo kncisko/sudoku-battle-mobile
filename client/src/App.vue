@@ -592,7 +592,17 @@ watch(gameStatus, async (newStatus, oldStatus) => {
 
   <!-- Main Game -->
   <div class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4 overflow-y-hidden">
-    <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full" style="margin-top: -4.9375rem;">
+    <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full relative game-panel-container">
+      <!-- Leave Game Button (top-right corner X) -->
+      <button
+        v-if="isPlaying"
+        @click="handleLeaveGame"
+        class="absolute top-[30px] right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+        title="Leave Game"
+      >
+        ✕
+      </button>
+
       <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">
         Sudoku Battle
       </h1>
@@ -691,16 +701,6 @@ watch(gameStatus, async (newStatus, oldStatus) => {
 
         <!-- Game Board (when playing or finished) -->
         <div v-else-if="isPlaying || isFinished">
-          <!-- Leave Game Button (bottom-right corner) -->
-          <button
-            v-if="isPlaying || isWaiting"
-            @click="handleLeaveGame"
-            class="fixed bottom-[66px] right-4 z-50 bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all hover:scale-105 text-sm"
-            title="Leave Game"
-          >
-            🚪 Leave Game
-          </button>
-
           <!-- Network Lag Warning (only in online mode) -->
           <div v-if="gameMode === 'online' && isPlaying && isSlowConnection" class="mb-2 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
             <p class="text-sm text-orange-800 font-semibold flex items-center gap-2">
@@ -718,28 +718,31 @@ watch(gameStatus, async (newStatus, oldStatus) => {
             </p>
           </div>
 
-          <!-- Move Status Indicator -->
-          <div v-if="gameMode === 'online' && isPlaying && moveStatus === 'submitting'" class="mb-2 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
-            <p class="text-sm text-blue-800 font-semibold flex items-center gap-2">
-              <span class="animate-spin">⏳</span>
-              <span>Submitting move...</span>
-            </p>
-          </div>
+          <!-- Turn Status Container (fixed height to prevent jumping) -->
+          <div class="h-[64px]">
+            <!-- Move Status Indicator -->
+            <div v-if="gameMode === 'online' && isPlaying && moveStatus === 'submitting'" class="mb-2 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
+              <p class="text-sm text-blue-800 font-semibold flex items-center gap-2">
+                <span class="animate-spin">⏳</span>
+                <span>Submitting move...</span>
+              </p>
+            </div>
 
-          <!-- Turn Status: Your Turn -->
-          <div v-if="gameMode === 'online' && isPlaying && isMyTurn && moveStatus === 'idle'" class="mb-2 p-2 bg-green-50 border-l-4 border-green-500 rounded">
-            <p class="text-sm text-green-800 font-semibold flex items-center gap-2">
-              <span>✋</span>
-              <span>Your turn - Make your move!</span>
-            </p>
-          </div>
+            <!-- Turn Status: Your Turn -->
+            <div v-if="gameMode === 'online' && isPlaying && isMyTurn && moveStatus === 'idle'" class="mb-2 p-2 bg-green-50 border-l-4 border-green-500 rounded">
+              <p class="text-sm text-green-800 font-semibold flex items-center gap-2">
+                <span>✋</span>
+                <span>Your turn - Make your move!</span>
+              </p>
+            </div>
 
-          <!-- Turn Status: Waiting for Opponent -->
-          <div v-if="gameMode === 'online' && isPlaying && !isMyTurn && moveStatus === 'idle'" class="mb-2 p-2 bg-purple-50 border-l-4 border-purple-500 rounded">
-            <p class="text-sm text-purple-800 font-semibold flex items-center gap-2">
-              <span>👀</span>
-              <span>Waiting for opponent to finish their turn...</span>
-            </p>
+            <!-- Turn Status: Waiting for Opponent -->
+            <div v-if="gameMode === 'online' && isPlaying && !isMyTurn && moveStatus === 'idle'" class="mb-2 p-2 bg-purple-50 border-l-4 border-purple-500 rounded">
+              <p class="text-sm text-purple-800 font-semibold flex items-center gap-2">
+                <span>👀</span>
+                <span>Waiting for opponent to finish their turn...</span>
+              </p>
+            </div>
           </div>
 
           <!-- Game Tracking Indicator -->
@@ -887,6 +890,30 @@ body {
 
 .flash-player-card {
   animation: flashCard 0.5s ease-out;
+}
+
+/* Responsive vertical centering for game panel */
+.game-panel-container {
+  margin-top: -2rem; /* Default for larger screens */
+}
+
+/* Adjust centering based on viewport height */
+@media (max-height: 700px) {
+  .game-panel-container {
+    margin-top: -1rem;
+  }
+}
+
+@media (max-height: 600px) {
+  .game-panel-container {
+    margin-top: -0.5rem;
+  }
+}
+
+@media (min-height: 900px) {
+  .game-panel-container {
+    margin-top: -3rem;
+  }
 }
 
 /* Connection status - mobile: hide desktop panel and show compact centered version during game */
