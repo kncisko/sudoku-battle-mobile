@@ -19,6 +19,7 @@ const emit = defineEmits<{
   createOfflineGame: [playerName: string, difficulty: 'beginner' | 'normal' | 'expert']
   joinRoom: [roomCode: string, playerName: string]
   showAuth: []
+  returnToModeSelection: []
 }>()
 
 const playerName = ref('')
@@ -140,6 +141,23 @@ const handleJoinRoom = () => {
         <div v-else class="text-center p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300">
           <p class="text-sm text-gray-600">Multiplayer requires internet connection</p>
         </div>
+
+        <!-- Join Room Toggle (only when connected) -->
+        <button
+          v-if="isConnected"
+          @click="showJoinForm = !showJoinForm"
+          class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md"
+        >
+          {{ showJoinForm ? '← Back to Main Menu' : '🔑 Join Existing Room' }}
+        </button>
+
+        <!-- Return to Mode Selection -->
+        <button
+          @click="$emit('returnToModeSelection')"
+          class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
+        >
+          ← Return to Game Selection
+        </button>
       </div>
 
       <!-- Difficulty Selection -->
@@ -172,16 +190,6 @@ const handleJoinRoom = () => {
           class="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
         >
           ← Back
-        </button>
-      </div>
-
-      <!-- Join Room Toggle (only when connected) -->
-      <div v-if="isConnected && !showDifficultySelect" class="mt-4">
-        <button
-          @click="showJoinForm = !showJoinForm"
-          class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md"
-        >
-          {{ showJoinForm ? '← Back to Main Menu' : '🔑 Join Existing Room' }}
         </button>
       </div>
 

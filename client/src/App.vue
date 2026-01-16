@@ -6,6 +6,7 @@ import { useAuth } from './composables/useAuth'
 import { useStats } from './composables/useStats'
 import SudokuBoard from './components/SudokuBoard.vue'
 import GameLobby from './components/GameLobby.vue'
+import GameModeSelector from './components/GameModeSelector.vue'
 import HelpModal from './components/HelpModal.vue'
 import AuthModal from './components/AuthModal.vue'
 import UserProfile from './components/UserProfile.vue'
@@ -17,6 +18,9 @@ import { Capacitor } from '@capacitor/core'
 
 // Splash screen state
 const showSplash = ref(true)
+
+// Game mode selection state
+const gameModeSelected = ref(false)
 
 // Help modal state
 const showHelp = ref(false)
@@ -53,6 +57,21 @@ const SPLASH_AUDIO_PATH = 'public/assets/puzzled_groove.mp3'
 const GAME_AUDIO_PATH = 'public/assets/sudoku_serenade.mp3'
 
 onMounted(async () => {
+  // Check if there's a saved game to restore
+  try {
+    const savedGame = localStorage.getItem('sudoku_battle_game_state')
+    if (savedGame) {
+      const gameState = JSON.parse(savedGame)
+      // Only auto-restore if saved within last 30 minutes
+      if (Date.now() - gameState.timestamp < 30 * 60 * 1000) {
+        console.log('📁 Found saved game, skipping mode selector')
+        gameModeSelected.value = true
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to check for saved game:', e)
+  }
+
   // Hide splash screen after 3 seconds (start this immediately)
   setTimeout(() => {
     showSplash.value = false
@@ -293,6 +312,18 @@ const handleUpdateUsername = async (username: string) => {
   }
 }
 
+// Game mode selection handler
+const handleGameModeSelect = (mode: 'battle' | 'classic') => {
+  if (mode === 'battle') {
+    // Navigate to Sudoku Battle (existing flow)
+    gameModeSelected.value = true
+  } else if (mode === 'classic') {
+    // Classic mode - to be implemented
+    console.log('Classic Sudoku mode - Coming soon!')
+    // TODO: Implement classic sudoku flow
+  }
+}
+
 // Leave game handler
 const handleLeaveGame = async () => {
   if (gameMode.value === 'online') {
@@ -302,6 +333,8 @@ const handleLeaveGame = async () => {
   }
   // Reset game mode
   gameMode.value = 'online'
+  // Return to mode selection
+  gameModeSelected.value = false
 
   // Switch back to splash music
   if (!isMuted.value) {
@@ -525,8 +558,14 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     />
   </div>
 
+  <!-- Game Mode Selector (show after splash, before game) -->
+  <GameModeSelector
+    v-if="!showSplash && !gameModeSelected"
+    @select-mode="handleGameModeSelect"
+  />
+
   <!-- Top Bar Buttons (only show on home page) -->
-  <div v-if="!showSplash && !isPlaying && !isFinished" class="fixed top-[54px] left-4 z-50 flex gap-2">
+  <div v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished" class="fixed top-[54px] left-4 z-50 flex gap-2">
     <!-- Leaderboard Button -->
     <button
       @click="showLeaderboard = true"
@@ -557,7 +596,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
 
   <!-- Help Button (only show on home page) -->
   <button
-    v-if="!showSplash && !isPlaying && !isFinished"
+    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished"
     @click="showHelp = true"
     class="fixed top-[54px] right-20 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     title="Help & Rules"
@@ -567,7 +606,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
 
   <!-- Music Control Button (only show on home page) -->
   <button
-    v-if="!showSplash && !isPlaying && !isFinished"
+    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished"
     @click="toggleMute"
     class="fixed top-[54px] right-4 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     :title="isMuted ? 'Unmute Music' : 'Mute Music'"
@@ -590,8 +629,8 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     />
   </div>
 
-  <!-- Main Game -->
-  <div class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4 overflow-y-hidden">
+  <!-- Main Game (only show when mode is selected) -->
+  <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4 overflow-y-hidden">
     <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full relative game-panel-container">
       <!-- Leave Game Button (top-right corner X) -->
       <button
@@ -697,6 +736,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
           @createOfflineGame="handleCreateOfflineGame"
           @join-room="handleJoinRoom"
           @show-auth="showAuthModal = true"
+          @return-to-mode-selection="gameModeSelected = false"
         />
 
         <!-- Game Board (when playing or finished) -->
