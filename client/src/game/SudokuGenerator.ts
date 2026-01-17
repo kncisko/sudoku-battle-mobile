@@ -40,7 +40,8 @@ export class SudokuGenerator {
           value: null,
           locked: false,
           lockedBy: null,
-          revealed: false
+          revealed: false,
+          notes: []
         };
       }
     }
@@ -69,7 +70,8 @@ export class SudokuGenerator {
           value: solution[row][col],
           locked: true,
           lockedBy: 'system',
-          revealed: false
+          revealed: false,
+          notes: []
         };
       }
     }
@@ -108,7 +110,8 @@ export class SudokuGenerator {
           value: null,
           locked: false,
           lockedBy: null,
-          revealed: false
+          revealed: false,
+          notes: []
         };
       }
     }

@@ -2,11 +2,13 @@
 import { computed, ref, onMounted, watch, onUnmounted } from 'vue'
 import { useSocket } from './composables/useSocket'
 import { useOfflineGame } from './composables/useOfflineGame'
+import { useClassicGame } from './composables/useClassicGame'
 import { useAuth } from './composables/useAuth'
 import { useStats } from './composables/useStats'
 import SudokuBoard from './components/SudokuBoard.vue'
 import GameLobby from './components/GameLobby.vue'
 import GameModeSelector from './components/GameModeSelector.vue'
+import ClassicDifficultySelector from './components/ClassicDifficultySelector.vue'
 import HelpModal from './components/HelpModal.vue'
 import AuthModal from './components/AuthModal.vue'
 import UserProfile from './components/UserProfile.vue'
@@ -21,6 +23,7 @@ const showSplash = ref(true)
 
 // Game mode selection state
 const gameModeSelected = ref(false)
+const showClassicDifficulty = ref(false)
 
 // Help modal state
 const showHelp = ref(false)
@@ -35,8 +38,11 @@ const authModalRef = ref<InstanceType<typeof AuthModal> | null>(null)
 const auth = useAuth()
 const userStats = useStats()
 
-// Game mode: 'online' or 'offline'
-const gameMode = ref<'online' | 'offline'>('online')
+// Game mode: 'online', 'offline', or 'classic'
+const gameMode = ref<'online' | 'offline' | 'classic'>('online')
+
+// Game instances
+const classicGame = useClassicGame()
 
 // Audio state
 const isMuted = ref(false)
@@ -257,7 +263,10 @@ const handleJoinRoom = (roomCode: string, playerName: string) => {
   onlineGame.joinRoom(roomCode, playerName, auth.user.value?.id)
 }
 
-const handleMakeMove = (row: number, col: number, value: number) => {
+const handleMakeMove = (row: number, col: number, value: number | null) => {
+  // Classic mode uses null to clear cells, but online/offline modes don't support clearing
+  if (value === null) return
+
   if (gameMode.value === 'online') {
     onlineGame.makeMove(row, col, value)
   } else {
@@ -318,18 +327,43 @@ const handleGameModeSelect = (mode: 'battle' | 'classic') => {
     // Navigate to Sudoku Battle (existing flow)
     gameModeSelected.value = true
   } else if (mode === 'classic') {
-    // Classic mode - to be implemented
-    console.log('Classic Sudoku mode - Coming soon!')
-    // TODO: Implement classic sudoku flow
+    // Show difficulty selection for Classic Sudoku
+    showClassicDifficulty.value = true
   }
+}
+
+// Classic difficulty selection handler
+const handleClassicDifficultySelect = (difficulty: 'easy' | 'medium' | 'hard') => {
+  console.log('Selected Classic Sudoku difficulty:', difficulty)
+
+  // Set game mode to classic
+  gameMode.value = 'classic'
+
+  // Generate and start the game
+  classicGame.startGame(difficulty)
+
+  // Hide difficulty selector and show game
+  showClassicDifficulty.value = false
+  gameModeSelected.value = true
+}
+
+// Back from difficulty selector
+const handleBackFromDifficulty = () => {
+  showClassicDifficulty.value = false
 }
 
 // Leave game handler
 const handleLeaveGame = async () => {
   if (gameMode.value === 'online') {
     onlineGame.resetGame()
-  } else {
+  } else if (gameMode.value === 'offline') {
     offlineGame.resetGame()
+  } else if (gameMode.value === 'classic') {
+    classicGame.resetGame()
+    // For classic mode, go back to difficulty selection instead of mode selection
+    gameModeSelected.value = false
+    showClassicDifficulty.value = true
+    return
   }
   // Reset game mode
   gameMode.value = 'online'
@@ -560,12 +594,19 @@ watch(gameStatus, async (newStatus, oldStatus) => {
 
   <!-- Game Mode Selector (show after splash, before game) -->
   <GameModeSelector
-    v-if="!showSplash && !gameModeSelected"
+    v-if="!showSplash && !gameModeSelected && !showClassicDifficulty"
     @select-mode="handleGameModeSelect"
   />
 
-  <!-- Top Bar Buttons (only show on home page) -->
-  <div v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished" class="fixed top-[54px] left-4 z-50 flex gap-2">
+  <!-- Classic Difficulty Selector (show after selecting Classic mode) -->
+  <ClassicDifficultySelector
+    v-if="!showSplash && !gameModeSelected && showClassicDifficulty"
+    @select-difficulty="handleClassicDifficultySelect"
+    @back="handleBackFromDifficulty"
+  />
+
+  <!-- Top Bar Buttons (only show on home page, not during Classic game) -->
+  <div v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value" class="fixed top-[54px] left-4 z-50 flex gap-2">
     <!-- Leaderboard Button -->
     <button
       @click="showLeaderboard = true"
@@ -594,9 +635,9 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     </button>
   </div>
 
-  <!-- Help Button (only show on home page) -->
+  <!-- Help Button (only show on home page, not during Classic game) -->
   <button
-    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished"
+    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
     @click="showHelp = true"
     class="fixed top-[54px] right-20 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     title="Help & Rules"
@@ -604,9 +645,9 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     <span class="text-2xl">❓</span>
   </button>
 
-  <!-- Music Control Button (only show on home page) -->
+  <!-- Music Control Button (only show on home page, not during Classic game) -->
   <button
-    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished"
+    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
     @click="toggleMute"
     class="fixed top-[54px] right-4 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     :title="isMuted ? 'Unmute Music' : 'Mute Music'"
@@ -634,7 +675,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full relative game-panel-container">
       <!-- Leave Game Button (top-right corner X) -->
       <button
-        v-if="isPlaying"
+        v-if="isPlaying || classicGame.isPlaying.value"
         @click="handleLeaveGame"
         class="absolute top-[30px] right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
         title="Leave Game"
@@ -643,11 +684,11 @@ watch(gameStatus, async (newStatus, oldStatus) => {
       </button>
 
       <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">
-        Sudoku Battle
+        {{ gameMode === 'classic' ? 'Classic Sudoku' : 'Sudoku Battle' }}
       </h1>
 
-      <!-- Connection Status - below title on mobile during game, full width on home -->
-      <div v-if="isPlaying || isFinished" class="connection-status-mobile mb-4 flex items-center justify-center gap-2">
+      <!-- Connection Status - below title on mobile during game, full width on home (Battle mode only) -->
+      <div v-if="gameMode !== 'classic' && (isPlaying || isFinished)" class="connection-status-mobile mb-4 flex items-center justify-center gap-2">
         <span class="relative flex h-2 w-2">
           <span v-if="connectionStatus === 'connected'"
                 class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -671,8 +712,63 @@ watch(gameStatus, async (newStatus, oldStatus) => {
       </div>
 
       <div class="space-y-6">
+        <!-- Classic Sudoku Game View -->
+        <div v-if="gameMode === 'classic' && (classicGame.isPlaying.value || classicGame.isCompleted.value)">
+          <!-- Game Stats -->
+          <div v-if="!classicGame.isCompleted.value" class="flex justify-center items-center mb-4 p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg gap-8">
+            <div class="text-center">
+              <p class="text-xs font-semibold text-gray-600 uppercase">Difficulty</p>
+              <p class="text-lg font-bold text-purple-700 capitalize">{{ classicGame.difficulty.value }}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-xs font-semibold text-gray-600 uppercase">Time</p>
+              <p class="text-lg font-bold text-blue-700">{{ Math.floor(classicGame.elapsedTime.value / 60) }}:{{ (classicGame.elapsedTime.value % 60).toString().padStart(2, '0') }}</p>
+            </div>
+          </div>
+
+          <!-- Sudoku Board with Notes -->
+          <SudokuBoard
+            v-if="!classicGame.isCompleted.value"
+            :board="classicGame.board.value"
+            :is-my-turn="true"
+            :players="[]"
+            :is-finished="classicGame.isCompleted.value"
+            :enable-notes="true"
+            @make-move="(row, col, value) => classicGame.makeMove(row, col, value)"
+            @toggle-note="(row, col, note) => classicGame.toggleNote(row, col, note)"
+          />
+
+          <!-- Completion Screen -->
+          <div v-if="classicGame.isCompleted.value" class="mt-4 p-6 bg-gradient-to-r from-green-100 to-emerald-200 rounded-lg border-2 border-green-400">
+            <div class="animate-fade-in text-center">
+              <h2 class="text-3xl font-bold mb-3">🎉 Puzzle Solved!</h2>
+              <p class="text-lg text-gray-700 mb-4">Congratulations! You completed the puzzle.</p>
+
+              <div class="flex justify-center gap-6 mb-4">
+                <div class="text-center">
+                  <p class="text-xs font-semibold text-gray-600 uppercase">Time</p>
+                  <p class="text-2xl font-bold text-blue-600">
+                    {{ Math.floor(classicGame.elapsedTime.value / 60) }}:{{ (classicGame.elapsedTime.value % 60).toString().padStart(2, '0') }}
+                  </p>
+                </div>
+                <div class="text-center">
+                  <p class="text-xs font-semibold text-gray-600 uppercase">Difficulty</p>
+                  <p class="text-2xl font-bold text-purple-600 capitalize">{{ classicGame.difficulty.value }}</p>
+                </div>
+              </div>
+
+              <button
+                @click="handleLeaveGame"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
+              >
+                Play Again
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Connection Status - desktop version (always visible) and home page -->
-        <div class="connection-status-desktop flex items-center justify-between p-3 rounded-lg"
+        <div v-if="gameMode !== 'classic'" class="connection-status-desktop flex items-center justify-between p-3 rounded-lg"
              :class="{
                'bg-green-100': connectionStatus === 'connected',
                'bg-red-100': connectionStatus === 'disconnected' || connectionStatus === 'error',
@@ -712,7 +808,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
         </div>
 
         <!-- Error Message (only show on home page, not on board) -->
-        <div v-if="onlineGame.error.value && !isPlaying && !isFinished" class="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+        <div v-if="gameMode !== 'classic' && onlineGame.error.value && !isPlaying && !isFinished" class="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
           <p class="text-red-700 font-medium mb-3">{{ onlineGame.error.value }}</p>
           <button
             @click="handleForceReset"
@@ -722,9 +818,9 @@ watch(gameStatus, async (newStatus, oldStatus) => {
           </button>
         </div>
 
-        <!-- Game Lobby (before game starts) -->
+        <!-- Game Lobby (before game starts) - only for Battle mode -->
         <GameLobby
-          v-if="!isPlaying && !isFinished"
+          v-if="gameMode !== 'classic' && !isPlaying && !isFinished"
           :room-code="onlineGame.roomCode.value"
           :players="players"
           :is-waiting="isWaiting"
@@ -739,8 +835,8 @@ watch(gameStatus, async (newStatus, oldStatus) => {
           @return-to-mode-selection="gameModeSelected = false"
         />
 
-        <!-- Game Board (when playing or finished) -->
-        <div v-else-if="isPlaying || isFinished">
+        <!-- Game Board (when playing or finished) - Battle mode only -->
+        <div v-else-if="gameMode !== 'classic' && (isPlaying || isFinished)">
           <!-- Network Lag Warning (only in online mode) -->
           <div v-if="gameMode === 'online' && isPlaying && isSlowConnection" class="mb-2 p-3 bg-orange-50 border-l-4 border-orange-500 rounded">
             <p class="text-sm text-orange-800 font-semibold flex items-center gap-2">

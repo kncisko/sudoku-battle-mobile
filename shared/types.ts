@@ -18,6 +18,7 @@ export interface Cell {
   locked: boolean              // True if cell is locked (can't be changed)
   lockedBy: string | null      // Player ID who locked this cell
   revealed: boolean            // True if revealed by wrong guess
+  notes?: number[]             // Optional notes/pencil marks (1-9) for Classic Sudoku
 }
 
 // Player information

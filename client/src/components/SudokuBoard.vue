@@ -11,16 +11,19 @@ interface Props {
   lastLockedCell?: { row: number; col: number } | null
   players: Player[]
   isFinished?: boolean
+  enableNotes?: boolean  // Enable notes mode for Classic Sudoku
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  makeMove: [row: number, col: number, value: number]
+  makeMove: [row: number, col: number, value: number | null]
+  toggleNote: [row: number, col: number, note: number]
 }>()
 
 const selectedCell = ref<{ row: number; col: number } | null>(null)
 const showNumberPad = ref(false)
+const notesMode = ref(false)  // Toggle between notes and regular entry
 
 // Native Audio IDs
 const CLICK_SOUND_ID = 'click_sound'
@@ -132,8 +135,8 @@ const getCellBgColor = (lockedBy: string | null, row: number, col: number): stri
     return '#bbf7d0' // green-200
   }
 
-  if (!lockedBy) return '#ffffff' // white
-  if (lockedBy === 'system') return '#f3f4f6' // gray-100
+  if (!lockedBy) return '#ffffff' // white - user can fill this
+  if (lockedBy === 'system') return '#e5e7eb' // gray-200 - pre-filled, locked cell
 
   // Find the player who locked this cell
   const player = props.players.find(p => p.id === lockedBy)
@@ -158,11 +161,15 @@ const getCellAnimationClass = (row: number, col: number): string => {
 }
 
 // Get text color based on who locked it
-const getTextColor = (lockedBy: string | null): string => {
-  if (!lockedBy) return '#111827' // gray-900
-  if (lockedBy === 'system') return '#111827' // gray-900
+const getTextColor = (lockedBy: string | null, hasValue: boolean): string => {
+  // User-entered values (not locked, but has value) - dark purple
+  if (!lockedBy && hasValue) return '#5b21b6' // purple-900
 
-  // Find the player who locked this cell
+  // Empty cells or pre-filled cells
+  if (!lockedBy) return '#111827' // gray-900
+  if (lockedBy === 'system') return '#111827' // gray-900 (pre-filled)
+
+  // Find the player who locked this cell (multiplayer)
   const player = props.players.find(p => p.id === lockedBy)
   if (player) {
     return player.colorScheme.textHex
@@ -199,13 +206,52 @@ const handleCellClick = (row: number, col: number) => {
 const selectNumber = (value: number) => {
   if (!selectedCell.value) return
 
-  // Don't play click here - let the result sound play (ding for correct, wind-up for wrong)
+  const { row, col } = selectedCell.value
 
-  emit('makeMove', selectedCell.value.row, selectedCell.value.col, value)
+  if (notesMode.value && props.enableNotes) {
+    // Toggle note mode
+    emit('toggleNote', row, col, value)
+
+    // Close keypad automatically
+    selectedCell.value = null
+    showNumberPad.value = false
+  } else {
+    // Regular move - let the result sound play (ding for correct, wind-up for wrong)
+    emit('makeMove', row, col, value)
+
+    // Clear selection
+    selectedCell.value = null
+    showNumberPad.value = false
+  }
+}
+
+// Clear cell value and notes
+const clearCell = () => {
+  if (!selectedCell.value || !props.board) return
+
+  const { row, col } = selectedCell.value
+
+  // Clear both value and notes
+  const cell = props.board.cells[row][col]
+  if (cell.notes && cell.notes.length > 0) {
+    // Clear notes
+    cell.notes = []
+  }
+
+  // Clear value
+  emit('makeMove', row, col, null)
 
   // Clear selection
   selectedCell.value = null
   showNumberPad.value = false
+}
+
+// Toggle notes mode
+const toggleNotesMode = () => {
+  if (props.enableNotes) {
+    notesMode.value = !notesMode.value
+    playClickSound()
+  }
 }
 
 // Close number pad
@@ -232,7 +278,7 @@ const closeNumberPad = () => {
             class="sudoku-cell relative flex items-center justify-center w-12 h-12 border border-gray-400 transition-all duration-200"
             :style="{
               '--cell-bg': getCellBgColor(cell.lockedBy, rowIndex, colIndex),
-              '--cell-color': getTextColor(cell.lockedBy),
+              '--cell-color': getTextColor(cell.lockedBy, cell.value !== null),
               backgroundColor: 'var(--cell-bg)',
               color: 'var(--cell-color)'
             }"
@@ -253,6 +299,16 @@ const closeNumberPad = () => {
               {{ cell.value }}
             </span>
 
+            <!-- Notes (3x3 grid of small numbers) -->
+            <div
+              v-else-if="cell.notes && cell.notes.length > 0"
+              class="notes-grid"
+            >
+              <span v-for="num in 9" :key="num" class="note-cell">
+                {{ cell.notes.includes(num) ? num : '' }}
+              </span>
+            </div>
+
             <!-- Empty cell indicator -->
             <span
               v-else
@@ -271,6 +327,17 @@ const closeNumberPad = () => {
         </template>
       </div>
     </div>
+
+    <!-- Notes Mode Toggle Button (Classic Sudoku only) -->
+    <button
+      v-if="enableNotes && !isFinished"
+      @click="toggleNotesMode"
+      class="notes-toggle-btn"
+      :class="{ 'notes-active': notesMode }"
+    >
+      <span class="text-lg">{{ notesMode ? '✏️ Notes Mode ON' : '🔢 Entry Mode' }}</span>
+      <span class="text-xs opacity-80">{{ notesMode ? 'Click to switch to entry mode' : 'Click to switch to notes mode' }}</span>
+    </button>
 
     <!-- Number Pad -->
     <div
@@ -297,12 +364,20 @@ const closeNumberPad = () => {
           </button>
         </div>
 
-        <button
-          @click="closeNumberPad"
-          class="mt-4 w-full py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg transition-colors"
-        >
-          Cancel
-        </button>
+        <div class="mt-4 flex gap-3">
+          <button
+            @click="clearCell"
+            class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
+          >
+            Clear
+          </button>
+          <button
+            @click="closeNumberPad"
+            class="flex-1 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -383,5 +458,69 @@ const closeNumberPad = () => {
     max-width: 3rem;
     font-size: 1.25rem; /* Reduce font size proportionally */
   }
+}
+
+/* Notes grid - 3x3 layout inside cell */
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 1px;
+}
+
+.note-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #1f2937; /* gray-800 - darker for better visibility */
+}
+
+@media (max-width: 768px) {
+  .note-cell {
+    font-size: 0.6rem; /* Larger on mobile for readability */
+  }
+}
+
+/* Notes toggle button */
+.notes-toggle-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.notes-toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.notes-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.notes-toggle-btn.notes-active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.notes-toggle-btn.notes-active:hover {
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
 }
 </style>
