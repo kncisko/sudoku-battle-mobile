@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import type { SudokuBoard, Player, GameStatus } from '../../../shared/types'
 import { SudokuGenerator } from '../game/SudokuGenerator'
 import { AIPlayer, AIDifficulty } from '../game/AIPlayer'
+import { playTickSound } from './useTickSound'
 
 export function useOfflineGame() {
   const board = ref<SudokuBoard | null>(null)
@@ -67,6 +68,11 @@ export function useOfflineGame() {
 
     turnTimer = window.setInterval(() => {
       remainingTime.value--
+
+      // Play tick sound during last 5 seconds
+      if (remainingTime.value > 0 && remainingTime.value <= 5) {
+        playTickSound()
+      }
 
       if (remainingTime.value <= 0) {
         clearTurnTimer()
@@ -302,13 +308,15 @@ export function useOfflineGame() {
         id: humanPlayerId,
         name: playerName || 'You',
         socketId: 'offline',
-        colorScheme: colorSchemes[0]
+        colorScheme: colorSchemes[0],
+        userId: null
       },
       {
         id: 'ai_player',
         name: 'AI Opponent',
         socketId: 'ai',
-        colorScheme: colorSchemes[1]
+        colorScheme: colorSchemes[1],
+        userId: null
       }
     ]
 

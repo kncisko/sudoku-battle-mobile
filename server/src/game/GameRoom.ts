@@ -92,7 +92,8 @@ export class GameRoom {
       id: playerId,
       name: playerName,
       socketId,
-      colorScheme: getRandomColorScheme(this.room.id)
+      colorScheme: getRandomColorScheme(this.room.id),
+      userId: userId || null  // Store the authenticated user ID
     };
 
     this.room.players.push(player);
@@ -105,7 +106,8 @@ export class GameRoom {
         id: aiPlayerId,
         name: 'AI Opponent',
         socketId: 'ai',
-        colorScheme: getRandomColorScheme(this.room.id)
+        colorScheme: getRandomColorScheme(this.room.id),
+        userId: null  // AI players are never authenticated
       };
 
       this.room.players.push(aiPlayer);

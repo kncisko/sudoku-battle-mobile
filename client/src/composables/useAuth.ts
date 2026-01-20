@@ -91,7 +91,7 @@ export function useAuth() {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token,
-        type: 'magiclink'
+        type: 'email'  // Changed from 'magiclink' to 'email' for OTP verification
       })
 
       if (verifyError) throw verifyError

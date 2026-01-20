@@ -154,9 +154,12 @@ const handleJoinRoom = () => {
         <!-- Return to Mode Selection -->
         <button
           @click="$emit('returnToModeSelection')"
-          class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
+          class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
         >
-          ← Return to Game Selection
+          <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor">
+            <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
+          </svg>
+          <span>Return to Game Selection</span>
         </button>
       </div>
 

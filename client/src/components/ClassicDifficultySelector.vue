@@ -35,13 +35,29 @@
         <span class="text-sm opacity-90">For puzzle masters</span>
       </button>
 
-      <!-- Back Button -->
-      <button
-        @click="$emit('back')"
-        class="difficulty-btn back-mode"
-      >
-        <span class="text-2xl font-bold">← Back</span>
-      </button>
+      <!-- Bottom buttons row -->
+      <div class="flex gap-3 w-full justify-center">
+        <button
+          @click="$emit('back')"
+          class="difficulty-btn back-mode flex-1"
+          style="max-width: 155px;"
+        >
+          <div class="flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" height="28" viewBox="0 -960 960 960" width="28" fill="currentColor">
+              <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
+            </svg>
+            <span class="text-xl font-bold">Back</span>
+          </div>
+        </button>
+
+        <button
+          @click="$emit('show-help')"
+          class="difficulty-btn help-mode flex-1"
+          style="max-width: 155px;"
+        >
+          <span class="text-xl font-bold">❓ Rules</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -50,6 +66,7 @@
 defineEmits<{
   'select-difficulty': [difficulty: 'easy' | 'medium' | 'hard']
   'back': []
+  'show-help': []
 }>()
 </script>
 
@@ -114,6 +131,16 @@ defineEmits<{
 
 .back-mode:hover {
   background: linear-gradient(135deg, #b8b8b8 0%, #9a9a9a 100%);
+}
+
+.help-mode {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+  min-height: 80px;
+}
+
+.help-mode:hover {
+  background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
 }
 
 /* Responsive sizing for mobile */

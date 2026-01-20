@@ -27,6 +27,7 @@ export interface Player {
   name: string
   socketId: string
   colorScheme: ColorScheme
+  userId?: string | null  // Authenticated user ID from Supabase
 }
 
 // Sudoku board state

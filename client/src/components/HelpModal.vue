@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import SudokuRules from './SudokuRules.vue'
 
 const props = defineProps<{
   isOpen: boolean
+  mode?: 'battle' | 'classic' // Default to 'battle' for backward compatibility
 }>()
 
 const emit = defineEmits<{
@@ -11,6 +12,15 @@ const emit = defineEmits<{
 }>()
 
 const activeTab = ref<'sudoku' | 'battle' | 'ai'>('battle')
+
+// When mode is classic, show only Sudoku Rules tab
+watch(() => props.mode, (newMode) => {
+  if (newMode === 'classic') {
+    activeTab.value = 'sudoku'
+  } else {
+    activeTab.value = 'battle'
+  }
+}, { immediate: true })
 
 const closeModal = () => {
   emit('close')
@@ -33,7 +43,6 @@ const handleModalChange = (isOpen: boolean) => {
 }
 
 // Watch for prop changes
-import { watch } from 'vue'
 watch(() => props.isOpen, handleModalChange)
 </script>
 
@@ -61,7 +70,7 @@ watch(() => props.isOpen, handleModalChange)
         </div>
 
         <!-- Tabs -->
-        <div class="flex border-b border-gray-200 bg-gray-50">
+        <div v-if="mode !== 'classic'" class="flex border-b border-gray-200 bg-gray-50">
           <button
             @click="activeTab = 'battle'"
             class="flex-1 px-4 py-3 text-sm font-semibold transition-colors"

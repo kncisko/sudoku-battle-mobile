@@ -55,10 +55,47 @@ export function useStats() {
     }
   }
 
+  const saveGameResult = async (gameData: {
+    player1_id: string
+    player2_id: string
+    winner_id: string | null
+    player1_score: number
+    player2_score: number
+    early_win: boolean
+    game_duration: number
+  }) => {
+    try {
+      console.log('💾 Saving game result to database:', gameData)
+
+      const { error: insertError } = await supabase
+        .from('games')
+        .insert([{
+          player1_id: gameData.player1_id,
+          player2_id: gameData.player2_id,
+          winner_id: gameData.winner_id,
+          player1_score: gameData.player1_score,
+          player2_score: gameData.player2_score,
+          early_win: gameData.early_win,
+          game_duration: gameData.game_duration
+        }])
+
+      if (insertError) {
+        console.error('❌ Error saving game result:', insertError)
+        throw insertError
+      }
+
+      console.log('✅ Game result saved successfully!')
+    } catch (err: any) {
+      console.error('Error saving game result:', err)
+      // Don't throw - we don't want to break the UI if stats saving fails
+    }
+  }
+
   return {
     stats,
     loading,
     error,
-    loadStats
+    loadStats,
+    saveGameResult
   }
 }

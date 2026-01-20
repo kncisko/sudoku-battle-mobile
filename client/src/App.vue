@@ -5,6 +5,7 @@ import { useOfflineGame } from './composables/useOfflineGame'
 import { useClassicGame } from './composables/useClassicGame'
 import { useAuth } from './composables/useAuth'
 import { useStats } from './composables/useStats'
+import { initializeTickSound } from './composables/useTickSound'
 import SudokuBoard from './components/SudokuBoard.vue'
 import GameLobby from './components/GameLobby.vue'
 import GameModeSelector from './components/GameModeSelector.vue'
@@ -17,6 +18,7 @@ import type { AIDifficulty } from './game/AIPlayer'
 import type { Player } from '../../shared/types'
 import { NativeAudio } from '@capacitor-community/native-audio'
 import { Capacitor } from '@capacitor/core'
+import { KeepAwake } from '@capacitor-community/keep-awake'
 
 // Splash screen state
 const showSplash = ref(true)
@@ -83,6 +85,9 @@ onMounted(async () => {
     showSplash.value = false
   }, 3000)
 
+  // Initialize tick sound for timer
+  await initializeTickSound()
+
   // Initialize audio based on platform
   // iOS: Use NativeAudio (works perfectly)
   // Android: Use HTML5 Audio (NativeAudio.loop() is broken)
@@ -121,8 +126,29 @@ onMounted(async () => {
       gameAudio.loop = true
       gameAudio.volume = 0.5
 
-      await splashAudio.play()
-      isAudioInitialized.value = true
+      // Try to play, but it might fail due to autoplay policy
+      try {
+        await splashAudio.play()
+        isAudioInitialized.value = true
+      } catch (playError) {
+        console.log('Autoplay prevented, will start on user interaction')
+        // Set up one-time click listener to start audio on first user interaction
+        const startAudioOnInteraction = async () => {
+          if (!isAudioInitialized.value && splashAudio && !isMuted.value) {
+            try {
+              await splashAudio.play()
+              isAudioInitialized.value = true
+              console.log('Audio started after user interaction')
+            } catch (e) {
+              console.log('Failed to start audio:', e)
+            }
+          }
+          document.removeEventListener('click', startAudioOnInteraction)
+          document.removeEventListener('touchstart', startAudioOnInteraction)
+        }
+        document.addEventListener('click', startAudioOnInteraction, { once: true })
+        document.addEventListener('touchstart', startAudioOnInteraction, { once: true })
+      }
     } catch (error) {
       console.log('HTML5 audio initialization error:', error)
     }
@@ -131,6 +157,7 @@ onMounted(async () => {
 
 const toggleMute = async () => {
   isMuted.value = !isMuted.value
+  // Note: tickSoundMuted is separate - music button only controls music
 
   if (isIOS && isCapacitor) {
     // iOS - Use NativeAudio
@@ -324,6 +351,8 @@ const handleUpdateUsername = async (username: string) => {
 // Game mode selection handler
 const handleGameModeSelect = (mode: 'battle' | 'classic') => {
   if (mode === 'battle') {
+    // Set game mode to online (default for Battle mode)
+    gameMode.value = 'online'
     // Navigate to Sudoku Battle (existing flow)
     gameModeSelected.value = true
   } else if (mode === 'classic') {
@@ -350,6 +379,8 @@ const handleClassicDifficultySelect = (difficulty: 'easy' | 'medium' | 'hard') =
 // Back from difficulty selector
 const handleBackFromDifficulty = () => {
   showClassicDifficulty.value = false
+  // Reset game mode to default (online) when going back to mode selector
+  gameMode.value = 'online'
 }
 
 // Leave game handler
@@ -575,6 +606,126 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     }
   }
 })
+
+// Watch for game finish to save results to database
+watch(isFinished, async (finished) => {
+  if (!finished || gameMode.value === 'classic') return
+
+  // Only save if both players are authenticated
+  const player1 = players.value[0] as Player
+  const player2 = players.value[1] as Player
+
+  if (!player1 || !player2) {
+    console.log('⚠️ Cannot save game - missing player data')
+    return
+  }
+
+  // Check if at least one player is authenticated (has a user ID)
+  const player1UserId = 'userId' in player1 ? player1.userId || null : null
+  const player2UserId = 'userId' in player2 ? player2.userId || null : null
+
+  if (!player1UserId && !player2UserId) {
+    console.log('⚠️ Cannot save game - no authenticated players')
+    return
+  }
+
+  // Calculate game duration (in seconds)
+  const gameDuration = Math.floor((Date.now() - (onlineGame.gameStartTime.value || Date.now())) / 1000)
+
+  // Determine winner ID
+  const winnerId = winner.value && 'userId' in winner.value ? winner.value.userId || null : null
+
+  const gameData = {
+    player1_id: (player1UserId || 'anonymous') as string,
+    player2_id: (player2UserId || 'anonymous') as string,
+    winner_id: winnerId as string | null,
+    player1_score: scores.value[player1.id] || 0,
+    player2_score: scores.value[player2.id] || 0,
+    early_win: earlyWin.value || false,
+    game_duration: gameDuration
+  }
+
+  console.log('🎮 Game finished, saving results:', gameData)
+  await userStats.saveGameResult(gameData)
+})
+
+// Keep screen awake during gameplay
+watch([isPlaying, () => classicGame.isPlaying.value], async ([battlePlaying, classicPlaying]) => {
+  const isAnyGamePlaying = battlePlaying || classicPlaying
+
+  try {
+    if (isAnyGamePlaying) {
+      await KeepAwake.keepAwake()
+      console.log('📱 Screen will stay awake during gameplay')
+    } else {
+      await KeepAwake.allowSleep()
+      console.log('📱 Screen sleep allowed')
+    }
+  } catch (error) {
+    console.log('Keep awake error:', error)
+  }
+})
+
+// Watch for Classic Sudoku game status changes to switch music
+watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], async ([isPlaying, isCompleted]) => {
+  // Only apply music changes when in Classic mode
+  if (gameMode.value !== 'classic') return
+  if (isMuted.value) return
+
+  if (isIOS && isCapacitor) {
+    // iOS - Use NativeAudio
+    try {
+      if (isPlaying && !isCompleted) {
+        // Switch to game music (downbeat jazz)
+        console.log('iOS Classic: Switching to game music')
+        await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+        await NativeAudio.setVolume({ assetId: SPLASH_AUDIO_ID, volume: 0.5 }).catch(() => {})
+        await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+
+        // Play once to start from beginning, then loop
+        await NativeAudio.play({ assetId: GAME_AUDIO_ID })
+        setTimeout(async () => {
+          await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+          await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
+        }, 100)
+      } else if (!isPlaying || isCompleted) {
+        // Switch back to splash music (upbeat jazz)
+        console.log('iOS Classic: Switching back to splash music')
+        await NativeAudio.stop({ assetId: GAME_AUDIO_ID }).catch(() => {})
+        await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+
+        // Play once to start from beginning, then loop
+        await NativeAudio.play({ assetId: SPLASH_AUDIO_ID })
+        setTimeout(async () => {
+          await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID }).catch(() => {})
+          await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+        }, 100)
+      }
+    } catch (error) {
+      console.log('iOS Classic music switch error:', error)
+    }
+  } else {
+    // Android - Use HTML5 Audio
+    if (isPlaying && !isCompleted) {
+      // Switch to game music (downbeat jazz)
+      splashAudio?.pause()
+      if (splashAudio) splashAudio.volume = 0.5
+
+      if (gameAudio) {
+        gameAudio.currentTime = 0
+        gameAudio.play()
+      }
+    } else if (!isPlaying || isCompleted) {
+      // Switch back to splash music (upbeat jazz)
+      gameAudio?.pause()
+
+      if (splashAudio) {
+        splashAudio.currentTime = 0
+        splashAudio.play()
+      }
+    }
+  }
+})
 </script>
 
 <template>
@@ -603,6 +754,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
     v-if="!showSplash && !gameModeSelected && showClassicDifficulty"
     @select-difficulty="handleClassicDifficultySelect"
     @back="handleBackFromDifficulty"
+    @show-help="showHelp = true"
   />
 
   <!-- Top Bar Buttons (only show on home page, not during Classic game) -->
@@ -673,22 +825,8 @@ watch(gameStatus, async (newStatus, oldStatus) => {
   <!-- Main Game (only show when mode is selected) -->
   <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4 overflow-y-hidden">
     <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full relative game-panel-container">
-      <!-- Leave Game Button (top-right corner X) -->
-      <button
-        v-if="isPlaying || classicGame.isPlaying.value"
-        @click="handleLeaveGame"
-        class="absolute top-[30px] right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
-        title="Leave Game"
-      >
-        ✕
-      </button>
-
-      <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">
-        {{ gameMode === 'classic' ? 'Classic Sudoku' : 'Sudoku Battle' }}
-      </h1>
-
-      <!-- Connection Status - below title on mobile during game, full width on home (Battle mode only) -->
-      <div v-if="gameMode !== 'classic' && (isPlaying || isFinished)" class="connection-status-mobile mb-4 flex items-center justify-center gap-2">
+      <!-- Connection Status - top left during gameplay only (Battle mode only) -->
+      <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[34px] left-4 flex items-center gap-2">
         <span class="relative flex h-2 w-2">
           <span v-if="connectionStatus === 'connected'"
                 class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -711,7 +849,33 @@ watch(gameStatus, async (newStatus, oldStatus) => {
         </span>
       </div>
 
-      <div class="space-y-6">
+      <!-- Music Control Button (during gameplay) -->
+      <button
+        v-if="isPlaying || classicGame.isPlaying.value"
+        @click="toggleMute"
+        class="absolute top-[30px] right-16 w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+        :title="isMuted ? 'Unmute Music' : 'Mute Music'"
+      >
+        <span v-if="isMuted" class="text-xl">🔇</span>
+        <span v-else class="text-xl">🔊</span>
+      </button>
+
+      <!-- Leave Game Button (top-right corner X) -->
+      <button
+        v-if="isPlaying || classicGame.isPlaying.value"
+        @click="handleLeaveGame"
+        class="absolute top-[30px] right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+        title="Leave Game"
+      >
+        ✕
+      </button>
+
+      <!-- Title - only show when NOT playing -->
+      <h1 v-if="!(isPlaying || classicGame.isPlaying.value)" class="text-3xl font-bold text-gray-800 mb-2 text-center">
+        {{ gameMode === 'classic' ? 'Classic Sudoku' : 'Sudoku Battle' }}
+      </h1>
+
+      <div class="space-y-6" :class="{ 'mt-14': isPlaying || classicGame.isPlaying.value }">
         <!-- Classic Sudoku Game View -->
         <div v-if="gameMode === 'classic' && (classicGame.isPlaying.value || classicGame.isCompleted.value)">
           <!-- Game Stats -->
@@ -736,6 +900,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
             :enable-notes="true"
             @make-move="(row, col, value) => classicGame.makeMove(row, col, value)"
             @toggle-note="(row, col, note) => classicGame.toggleNote(row, col, note)"
+            @reset-board="classicGame.resetBoard()"
           />
 
           <!-- Completion Screen -->
@@ -967,7 +1132,7 @@ watch(gameStatus, async (newStatus, oldStatus) => {
               </div>
 
               <!-- End Button -->
-              <div v-if="showEndButton" class="text-center animate-fade-in">
+              <div class="text-center mt-4">
                 <button
                   @click="handleEndGame"
                   class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
@@ -984,7 +1149,11 @@ watch(gameStatus, async (newStatus, oldStatus) => {
   </div>
 
   <!-- Help Modal -->
-  <HelpModal :is-open="showHelp" @close="showHelp = false" />
+  <HelpModal
+    :is-open="showHelp"
+    :mode="gameMode === 'classic' || showClassicDifficulty ? 'classic' : 'battle'"
+    @close="showHelp = false"
+  />
 
   <!-- Auth Modal -->
   <AuthModal

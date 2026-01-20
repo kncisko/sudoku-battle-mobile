@@ -19,6 +19,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   makeMove: [row: number, col: number, value: number | null]
   toggleNote: [row: number, col: number, note: number]
+  resetBoard: []
 }>()
 
 const selectedCell = ref<{ row: number; col: number } | null>(null)
@@ -259,6 +260,12 @@ const closeNumberPad = () => {
   selectedCell.value = null
   showNumberPad.value = false
 }
+
+// Reset board - emit event to parent
+const handleResetBoard = () => {
+  playClickSound()
+  emit('resetBoard')
+}
 </script>
 
 <template>
@@ -328,16 +335,25 @@ const closeNumberPad = () => {
       </div>
     </div>
 
-    <!-- Notes Mode Toggle Button (Classic Sudoku only) -->
-    <button
-      v-if="enableNotes && !isFinished"
-      @click="toggleNotesMode"
-      class="notes-toggle-btn"
-      :class="{ 'notes-active': notesMode }"
-    >
-      <span class="text-lg">{{ notesMode ? '✏️ Notes Mode ON' : '🔢 Entry Mode' }}</span>
-      <span class="text-xs opacity-80">{{ notesMode ? 'Click to switch to entry mode' : 'Click to switch to notes mode' }}</span>
-    </button>
+    <!-- Classic Sudoku Controls (Notes Toggle + Reset Board) -->
+    <div v-if="enableNotes && !isFinished" class="classic-controls">
+      <button
+        @click="toggleNotesMode"
+        class="notes-toggle-btn"
+        :class="{ 'notes-active': notesMode }"
+      >
+        <span class="text-lg">{{ notesMode ? '✏️ Notes ON' : '✏️ Notes OFF' }}</span>
+        <span class="text-xs opacity-80">{{ notesMode ? 'Click to turn off notes' : 'Click to turn on notes' }}</span>
+      </button>
+
+      <button
+        @click="handleResetBoard"
+        class="reset-board-btn"
+      >
+        <span class="text-lg">🔄 Reset Board</span>
+        <span class="text-xs opacity-80">Clear all your entries</span>
+      </button>
+    </div>
 
     <!-- Number Pad -->
     <div
@@ -471,6 +487,18 @@ const closeNumberPad = () => {
   top: 0;
   left: 0;
   padding: 1px;
+  gap: 0;
+  box-sizing: border-box;
+}
+
+/* iOS-specific fix for notes grid alignment */
+@supports (-webkit-touch-callout: none) {
+  .notes-grid {
+    padding: 0;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .note-cell {
@@ -480,17 +508,31 @@ const closeNumberPad = () => {
   font-size: 0.65rem;
   font-weight: 700;
   color: #1f2937; /* gray-800 - darker for better visibility */
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  line-height: 1;
+  overflow: hidden;
 }
 
 @media (max-width: 768px) {
   .note-cell {
     font-size: 0.6rem; /* Larger on mobile for readability */
+    line-height: 1;
   }
+}
+
+/* Classic controls container */
+.classic-controls {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: stretch;
 }
 
 /* Notes toggle button */
 .notes-toggle-btn {
-  margin-top: 1rem;
   padding: 0.75rem 1.5rem;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
@@ -504,6 +546,7 @@ const closeNumberPad = () => {
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .notes-toggle-btn:hover {
@@ -522,5 +565,32 @@ const closeNumberPad = () => {
 
 .notes-toggle-btn.notes-active:hover {
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+/* Reset board button */
+.reset-board-btn {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.reset-board-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+}
+
+.reset-board-btn:active {
+  transform: translateY(0);
 }
 </style>

@@ -192,6 +192,26 @@ export function useClassicGame() {
     return Math.floor((now - startTime.value) / 1000)
   })
 
+  // Reset board (clear user entries, keep same puzzle)
+  const resetBoard = () => {
+    if (!board.value || !isPlaying.value) return
+
+    console.log('🔄 Resetting board - clearing all user entries')
+
+    // Clear all non-locked cells (user entries) and their notes
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+        const cell = board.value.cells[row][col]
+
+        // Only clear cells that are not locked (system pre-filled)
+        if (!cell.locked) {
+          cell.value = null
+          cell.notes = []
+        }
+      }
+    }
+  }
+
   // Reset game
   const resetGame = () => {
     if (timerInterval) {
@@ -225,6 +245,7 @@ export function useClassicGame() {
     startGame,
     makeMove,
     toggleNote,
+    resetBoard,
     resetGame
   }
 }

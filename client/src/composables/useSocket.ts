@@ -1,6 +1,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { io, Socket } from 'socket.io-client'
 import type { SudokuBoard, Player, GameStatus } from '../../../shared/types'
+import { playTickSound } from './useTickSound'
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
 
@@ -34,6 +35,7 @@ export function useSocket() {
   const moveSubmittedAt = ref<number>(0)
   const lastMoveLatency = ref<number>(0)
   const isSlowConnection = ref(false)
+  const gameStartTime = ref<number | null>(null)
 
   // LocalStorage key for game state backup
   const GAME_STATE_KEY = 'sudoku_battle_game_state'
@@ -110,6 +112,11 @@ export function useSocket() {
       const elapsedSeconds = Math.floor((Date.now() - turnStartTimestamp) / 1000)
       remainingTime.value = Math.max(0, TURN_TIME_LIMIT - elapsedSeconds)
 
+      // Play tick sound during last 5 seconds
+      if (remainingTime.value > 0 && remainingTime.value <= 5) {
+        playTickSound()
+      }
+
       // When timer reaches 0, emit time_expired event (only if it's my turn)
       if (remainingTime.value <= 0) {
         clearTurnTimer()
@@ -157,6 +164,7 @@ export function useSocket() {
       isConnected.value = true
       connectionStatus.value = 'connected'
       connectionAttempts.value = 0
+      error.value = null // Clear any connection errors on successful connection
 
       // If we were in a room and just reconnected, request game state
       // This handles manual reconnection (socket.connect()) as well as automatic reconnection
@@ -185,6 +193,7 @@ export function useSocket() {
       console.log(`🔄 Reconnection attempt ${attemptNumber}`)
       connectionStatus.value = 'reconnecting'
       connectionAttempts.value = attemptNumber
+      error.value = null // Clear error during reconnection attempts
     })
 
     socket.value.on('reconnect_failed', () => {
@@ -310,6 +319,9 @@ export function useSocket() {
       turnStartTime?: number
     }) => {
       console.log('Game starting:', data)
+
+      // Record when the game started
+      gameStartTime.value = Date.now()
 
       // Set game state immediately (don't wait for animation)
       board.value = data.board
@@ -504,6 +516,7 @@ export function useSocket() {
     earlyWin.value = false
     revealedCell.value = null
     lastLockedCell.value = null
+    gameStartTime.value = null
 
     // Clear saved game state from localStorage
     clearGameState()
@@ -531,6 +544,7 @@ export function useSocket() {
     moveStatus,
     lastMoveLatency,
     isSlowConnection,
+    gameStartTime,
     createRoom,
     createAIGame,
     joinRoom,
