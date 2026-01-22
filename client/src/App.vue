@@ -826,7 +826,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4 overflow-y-hidden">
     <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full relative game-panel-container">
       <!-- Connection Status - top left during gameplay only (Battle mode only) -->
-      <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[34px] left-4 flex items-center gap-2">
+      <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[42px] left-[47px] flex items-center gap-2">
         <span class="relative flex h-2 w-2">
           <span v-if="connectionStatus === 'connected'"
                 class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -898,8 +898,10 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
             :players="[]"
             :is-finished="classicGame.isCompleted.value"
             :enable-notes="true"
+            :can-undo="classicGame.canUndo.value"
             @make-move="(row, col, value) => classicGame.makeMove(row, col, value)"
             @toggle-note="(row, col, note) => classicGame.toggleNote(row, col, note)"
+            @undo="classicGame.undo()"
             @reset-board="classicGame.resetBoard()"
           />
 

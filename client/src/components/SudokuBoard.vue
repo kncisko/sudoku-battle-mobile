@@ -12,6 +12,7 @@ interface Props {
   players: Player[]
   isFinished?: boolean
   enableNotes?: boolean  // Enable notes mode for Classic Sudoku
+  canUndo?: boolean      // Whether undo is available (Classic Sudoku)
 }
 
 const props = defineProps<Props>()
@@ -19,12 +20,14 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   makeMove: [row: number, col: number, value: number | null]
   toggleNote: [row: number, col: number, note: number]
+  undo: []
   resetBoard: []
 }>()
 
 const selectedCell = ref<{ row: number; col: number } | null>(null)
 const showNumberPad = ref(false)
 const notesMode = ref(false)  // Toggle between notes and regular entry
+const showResetConfirm = ref(false)  // Show reset confirmation dialog
 
 // Native Audio IDs
 const CLICK_SOUND_ID = 'click_sound'
@@ -261,10 +264,29 @@ const closeNumberPad = () => {
   showNumberPad.value = false
 }
 
-// Reset board - emit event to parent
+// Undo last move - emit event to parent
+const handleUndo = () => {
+  playClickSound()
+  emit('undo')
+}
+
+// Show reset confirmation dialog
 const handleResetBoard = () => {
   playClickSound()
+  showResetConfirm.value = true
+}
+
+// Confirm reset - actually reset the board
+const confirmReset = () => {
+  playClickSound()
+  showResetConfirm.value = false
   emit('resetBoard')
+}
+
+// Cancel reset
+const cancelReset = () => {
+  playClickSound()
+  showResetConfirm.value = false
 }
 </script>
 
@@ -335,23 +357,33 @@ const handleResetBoard = () => {
       </div>
     </div>
 
-    <!-- Classic Sudoku Controls (Notes Toggle + Reset Board) -->
+    <!-- Classic Sudoku Controls (Notes Toggle + Undo + Reset Board) -->
     <div v-if="enableNotes && !isFinished" class="classic-controls">
       <button
         @click="toggleNotesMode"
-        class="notes-toggle-btn"
+        class="control-btn notes-toggle-btn"
         :class="{ 'notes-active': notesMode }"
       >
-        <span class="text-lg">{{ notesMode ? '✏️ Notes ON' : '✏️ Notes OFF' }}</span>
-        <span class="text-xs opacity-80">{{ notesMode ? 'Click to turn off notes' : 'Click to turn on notes' }}</span>
+        <span>✏️</span>
+        <span>{{ notesMode ? 'Notes ON' : 'Notes OFF' }}</span>
+      </button>
+
+      <button
+        @click="handleUndo"
+        class="control-btn undo-btn"
+        :class="{ 'btn-disabled': !canUndo }"
+        :disabled="!canUndo"
+      >
+        <span>↩️</span>
+        <span>Undo</span>
       </button>
 
       <button
         @click="handleResetBoard"
-        class="reset-board-btn"
+        class="control-btn reset-board-btn"
       >
-        <span class="text-lg">🔄 Reset Board</span>
-        <span class="text-xs opacity-80">Clear all your entries</span>
+        <span>🔄</span>
+        <span>Reset</span>
       </button>
     </div>
 
@@ -392,6 +424,40 @@ const handleResetBoard = () => {
             class="flex-1 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg transition-colors"
           >
             Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset Confirmation Modal -->
+    <div
+      v-if="showResetConfirm"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      @click="cancelReset"
+    >
+      <div
+        class="reset-confirm-modal bg-white rounded-lg p-6 shadow-2xl mx-4"
+        @click.stop
+      >
+        <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">
+          Reset Board?
+        </h3>
+        <p class="text-gray-600 text-center mb-6">
+          This will clear all your entries and notes. This cannot be undone.
+        </p>
+
+        <div class="flex gap-3">
+          <button
+            @click="cancelReset"
+            class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmReset"
+            class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
+          >
+            Reset
           </button>
         </div>
       </div>
@@ -526,71 +592,78 @@ const handleResetBoard = () => {
 .classic-controls {
   margin-top: 1rem;
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
   justify-content: center;
   align-items: stretch;
 }
 
-/* Notes toggle button */
-.notes-toggle-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+/* Base control button style */
+.control-btn {
+  padding: 0.6rem 0.75rem;
   color: white;
   border: none;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s ease;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: center;
+  gap: 0.375rem;
   flex: 1;
 }
 
-.notes-toggle-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+.control-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
-.notes-toggle-btn:active {
-  transform: translateY(0);
+/* Notes toggle button */
+.notes-toggle-btn {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
 }
 
 .notes-toggle-btn.notes-active {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
-.notes-toggle-btn.notes-active:hover {
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+/* Undo button */
+.undo-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.control-btn.btn-disabled {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  box-shadow: 0 2px 8px rgba(156, 163, 175, 0.2);
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 /* Reset board button */
 .reset-board-btn {
-  padding: 0.75rem 1.5rem;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-  transition: all 0.3s ease;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  flex: 1;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
-.reset-board-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+/* Reset confirmation modal */
+.reset-confirm-modal {
+  max-width: 320px;
+  width: 100%;
+  animation: modalSlideIn 0.2s ease-out;
 }
 
-.reset-board-btn:active {
-  transform: translateY(0);
+@keyframes modalSlideIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 </style>

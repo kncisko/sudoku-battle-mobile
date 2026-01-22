@@ -11,6 +11,17 @@ const DIFFICULTY_CONFIG = {
   hard: 26     // 26 cells pre-filled (harder)
 }
 
+// Undo system constants
+const MAX_UNDO_STEPS = 50
+
+// Undo entry - stores the previous state of a cell before a change
+interface UndoEntry {
+  row: number
+  col: number
+  previousValue: number | null
+  previousNotes: number[]
+}
+
 export function useClassicGame() {
   const board = ref<SudokuBoard | null>(null)
   const solution = ref<number[][] | null>(null)
@@ -19,6 +30,7 @@ export function useClassicGame() {
   const isPlaying = ref(false)
   const isCompleted = ref(false)
   const currentTime = ref<number>(0) // For triggering reactivity
+  const undoStack = ref<UndoEntry[]>([]) // Undo history stack
 
   let timerInterval: NodeJS.Timeout | null = null
 
@@ -38,6 +50,7 @@ export function useClassicGame() {
     currentTime.value = Date.now()
     isPlaying.value = true
     isCompleted.value = false
+    undoStack.value = [] // Clear undo stack for new game
 
     console.log('✅ Puzzle generated:', {
       difficulty: selectedDifficulty,
@@ -56,6 +69,27 @@ export function useClassicGame() {
     // TODO: Save to localStorage for resume capability
   }
 
+  // Push current cell state to undo stack before modifying
+  const pushToUndoStack = (row: number, col: number) => {
+    if (!board.value) return
+
+    const cell = board.value.cells[row][col]
+
+    // Store the current state before the change
+    const entry: UndoEntry = {
+      row,
+      col,
+      previousValue: cell.value,
+      previousNotes: cell.notes ? [...cell.notes] : []
+    }
+
+    // Add to stack, remove oldest if at max capacity
+    undoStack.value.push(entry)
+    if (undoStack.value.length > MAX_UNDO_STEPS) {
+      undoStack.value.shift()
+    }
+  }
+
   // Make a move
   const makeMove = (row: number, col: number, value: number | null) => {
     if (!board.value || !solution.value || !isPlaying.value) return
@@ -65,12 +99,14 @@ export function useClassicGame() {
     // Can't modify locked cells
     if (cell.locked) return
 
-    // Update cell value
-    cell.value = value
+    // Save current state to undo stack before making the change
+    pushToUndoStack(row, col)
 
-    // Clear notes when value is set
-    if (value !== null && cell.notes) {
-      cell.notes = []
+    // Update cell by creating a new object to ensure Vue reactivity detects the change
+    board.value.cells[row][col] = {
+      ...cell,
+      value: value,
+      notes: value !== null ? [] : (cell.notes || [])
     }
 
     // Check if puzzle is completed (only validate when all cells are filled)
@@ -86,22 +122,50 @@ export function useClassicGame() {
     // Can't modify locked cells
     if (cell.locked) return
 
-    // Initialize notes array if it doesn't exist
-    if (!cell.notes) {
-      cell.notes = []
-    }
+    // Save current state to undo stack before making the change
+    pushToUndoStack(row, col)
+
+    // Get current notes or initialize empty array
+    const currentNotes = cell.notes ? [...cell.notes] : []
 
     // Toggle the note
-    const index = cell.notes.indexOf(note)
+    const index = currentNotes.indexOf(note)
     if (index > -1) {
       // Note exists, remove it
-      cell.notes.splice(index, 1)
+      currentNotes.splice(index, 1)
     } else {
       // Note doesn't exist, add it
-      cell.notes.push(note)
-      cell.notes.sort() // Keep notes sorted
+      currentNotes.push(note)
+      currentNotes.sort() // Keep notes sorted
+    }
+
+    // Update cell by creating a new object to ensure Vue reactivity
+    board.value.cells[row][col] = {
+      ...cell,
+      notes: currentNotes
     }
   }
+
+  // Undo the last move
+  const undo = () => {
+    if (!board.value || !isPlaying.value || undoStack.value.length === 0) return
+
+    // Pop the last entry from the stack
+    const entry = undoStack.value.pop()
+    if (!entry) return
+
+    const cell = board.value.cells[entry.row][entry.col]
+
+    // Restore the previous state
+    board.value.cells[entry.row][entry.col] = {
+      ...cell,
+      value: entry.previousValue,
+      notes: entry.previousNotes
+    }
+  }
+
+  // Check if undo is available
+  const canUndo = computed(() => undoStack.value.length > 0)
 
   // Validate if the board follows Sudoku rules
   const isValidSudoku = (): boolean => {
@@ -198,6 +262,9 @@ export function useClassicGame() {
 
     console.log('🔄 Resetting board - clearing all user entries')
 
+    // Clear undo stack since we're resetting the board
+    undoStack.value = []
+
     // Clear all non-locked cells (user entries) and their notes
     for (let row = 0; row < 9; row++) {
       for (let col = 0; col < 9; col++) {
@@ -205,8 +272,12 @@ export function useClassicGame() {
 
         // Only clear cells that are not locked (system pre-filled)
         if (!cell.locked) {
-          cell.value = null
-          cell.notes = []
+          // Create new cell object to ensure Vue reactivity
+          board.value.cells[row][col] = {
+            ...cell,
+            value: null,
+            notes: []
+          }
         }
       }
     }
@@ -225,6 +296,7 @@ export function useClassicGame() {
     currentTime.value = 0
     isPlaying.value = false
     isCompleted.value = false
+    undoStack.value = []
   }
 
   // Cleanup on unmount
@@ -242,9 +314,11 @@ export function useClassicGame() {
     isPlaying,
     isCompleted,
     elapsedTime,
+    canUndo,
     startGame,
     makeMove,
     toggleNote,
+    undo,
     resetBoard,
     resetGame
   }
