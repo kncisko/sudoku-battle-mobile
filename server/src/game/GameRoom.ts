@@ -14,7 +14,7 @@ export class GameRoom {
 
   constructor(roomId: string, withAI: boolean = false, aiDifficulty: AIDifficulty = 'normal') {
     this.isAIGame = withAI;
-    const { board, solution } = SudokuGenerator.generatePuzzle(10); // Start with 10 pre-revealed tiles
+    const { board, solution } = SudokuGenerator.generatePuzzle(17); // Start with 17 pre-revealed tiles (minimum for valid Sudoku)
 
     // DEBUG: Count locked cells
     let lockedCount = 0;

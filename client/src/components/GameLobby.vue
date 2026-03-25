@@ -20,6 +20,7 @@ const emit = defineEmits<{
   joinRoom: [roomCode: string, playerName: string]
   showAuth: []
   returnToModeSelection: []
+  cancelRoom: []
 }>()
 
 const playerName = ref('')
@@ -305,14 +306,22 @@ const handleJoinRoom = () => {
       <!-- Waiting Status -->
       <div
         v-else-if="isWaiting"
-        class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 text-center"
+        class="space-y-3"
       >
-        <div class="flex items-center justify-center gap-2">
-          <div class="animate-spin h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full"></div>
-          <p class="text-sm font-medium text-yellow-700">
-            Waiting for opponent to join...
-          </p>
+        <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 text-center">
+          <div class="flex items-center justify-center gap-2">
+            <div class="animate-spin h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full"></div>
+            <p class="text-sm font-medium text-yellow-700">
+              Waiting for opponent to join...
+            </p>
+          </div>
         </div>
+        <button
+          @click="$emit('cancelRoom')"
+          class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   </div>

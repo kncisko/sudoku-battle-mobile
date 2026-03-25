@@ -65,10 +65,8 @@ export function useStats() {
     game_duration: number
   }) => {
     try {
-      console.log('💾 Saving game result to database:', gameData)
-
       const { error: insertError } = await supabase
-        .from('games')
+        .from('game_results')
         .insert([{
           player1_id: gameData.player1_id,
           player2_id: gameData.player2_id,
@@ -80,14 +78,10 @@ export function useStats() {
         }])
 
       if (insertError) {
-        console.error('❌ Error saving game result:', insertError)
-        throw insertError
+        console.error('Failed to save game result:', insertError.code, insertError.message)
       }
-
-      console.log('✅ Game result saved successfully!')
     } catch (err: any) {
-      console.error('Error saving game result:', err)
-      // Don't throw - we don't want to break the UI if stats saving fails
+      console.error('Exception saving game result:', err?.message || err)
     }
   }
 

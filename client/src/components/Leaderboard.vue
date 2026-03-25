@@ -228,21 +228,24 @@ const closeModal = () => {
           <div class="flex gap-2 justify-center">
             <button
               @click="selectedFilter = 'all'; loadLeaderboard()"
-              class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              :disabled="loading"
+              class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :class="selectedFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               All Time
             </button>
             <button
               @click="selectedFilter = 'week'; loadLeaderboard()"
-              class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              :disabled="loading"
+              class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :class="selectedFilter === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               This Week
             </button>
             <button
               @click="selectedFilter = 'month'; loadLeaderboard()"
-              class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              :disabled="loading"
+              class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               :class="selectedFilter === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             >
               This Month
@@ -317,9 +320,10 @@ const closeModal = () => {
         <div class="p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
           <button
             @click="loadLeaderboard"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            :disabled="loading"
+            class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors"
           >
-            🔄 Refresh Leaderboard
+            {{ loading ? 'Loading...' : '🔄 Refresh Leaderboard' }}
           </button>
         </div>
       </div>

@@ -295,7 +295,7 @@ export function useOfflineGame() {
 
   const startOfflineGame = (playerName: string, difficulty: AIDifficulty = 'normal') => {
     // Generate puzzle
-    const puzzle = SudokuGenerator.generatePuzzle(0)
+    const puzzle = SudokuGenerator.generatePuzzle(17)
     board.value = puzzle.board
     solution.value = puzzle.solution
 

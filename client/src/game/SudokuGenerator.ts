@@ -9,7 +9,7 @@ export class SudokuGenerator {
    * Players compete to fill in the cells correctly
    */
   static generatePuzzle(preFillCount: number = 0): { board: SudokuBoard; solution: number[][] } {
-    // Generate a complete puzzle and solve it to get a valid solution
+    // Generate a puzzle - makepuzzle returns a puzzle with guaranteed unique solution
     const puzzleArray = sudoku.makepuzzle();
     const solutionArray = sudoku.solvepuzzle(puzzleArray);
 
@@ -17,55 +17,76 @@ export class SudokuGenerator {
       throw new Error('Failed to generate valid Sudoku puzzle');
     }
 
-    // Convert solution to grid
+    // Convert solution to grid (1-9 format)
     const solution = this.arrayToGrid(solutionArray);
 
-    // Start with an empty board (or with a few pre-filled cells)
-    const board = this.createEmptyBoardWithHints(solution, preFillCount);
+    // Create board using the original puzzle pattern (preserves unique solution guarantee)
+    const board = this.createBoardFromPuzzle(puzzleArray, solution, preFillCount);
 
     return { board, solution };
   }
 
   /**
-   * Create a board with optional pre-filled hint cells
+   * Create a board from the library's puzzle pattern to preserve unique solution guarantee
+   * The puzzleArray from makepuzzle() has specific cells filled to ensure uniqueness
+   * We use those cells as the base, then optionally add more hints for easier difficulties
    */
-  private static createEmptyBoardWithHints(solution: number[][], hintCount: number): SudokuBoard {
+  private static createBoardFromPuzzle(
+    puzzleArray: (number | null)[],
+    solution: number[][],
+    targetHintCount: number
+  ): SudokuBoard {
     const cells: Cell[][] = [];
 
-    // Initialize all cells as empty
+    // Track which cells are pre-filled by the original puzzle (these guarantee uniqueness)
+    const originalClues: Array<[number, number]> = [];
+    const emptyCells: Array<[number, number]> = [];
+
+    // Initialize board with the original puzzle clues
     for (let row = 0; row < 9; row++) {
       cells[row] = [];
       for (let col = 0; col < 9; col++) {
-        cells[row][col] = {
-          value: null,
-          locked: false,
-          lockedBy: null,
-          revealed: false,
-          notes: []
-        };
+        const index = row * 9 + col;
+        const puzzleValue = puzzleArray[index];
+
+        if (puzzleValue !== null) {
+          // This is an original clue - convert from 0-8 to 1-9
+          cells[row][col] = {
+            value: puzzleValue + 1,
+            locked: true,
+            lockedBy: 'system',
+            revealed: false,
+            notes: []
+          };
+          originalClues.push([row, col]);
+        } else {
+          // Empty cell
+          cells[row][col] = {
+            value: null,
+            locked: false,
+            lockedBy: null,
+            revealed: false,
+            notes: []
+          };
+          emptyCells.push([row, col]);
+        }
       }
     }
 
-    // Optionally add some hint cells
-    if (hintCount > 0) {
-      const positions: Array<[number, number]> = [];
-
-      // Generate all possible positions
-      for (let row = 0; row < 9; row++) {
-        for (let col = 0; col < 9; col++) {
-          positions.push([row, col]);
-        }
-      }
-
-      // Shuffle and pick random positions for hints
-      for (let i = positions.length - 1; i > 0; i--) {
+    // If we need more hints than the original puzzle provides, add more from empty cells
+    // Adding more clues never breaks uniqueness (it only removes possible solutions)
+    const currentClueCount = originalClues.length;
+    if (targetHintCount > currentClueCount && emptyCells.length > 0) {
+      // Shuffle empty cells to randomly select additional hints
+      for (let i = emptyCells.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [positions[i], positions[j]] = [positions[j], positions[i]];
+        [emptyCells[i], emptyCells[j]] = [emptyCells[j], emptyCells[i]];
       }
 
-      // Fill the hint cells
-      for (let i = 0; i < Math.min(hintCount, positions.length); i++) {
-        const [row, col] = positions[i];
+      // Add additional hints up to target count
+      const hintsToAdd = Math.min(targetHintCount - currentClueCount, emptyCells.length);
+      for (let i = 0; i < hintsToAdd; i++) {
+        const [row, col] = emptyCells[i];
         cells[row][col] = {
           value: solution[row][col],
           locked: true,

@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { GameRoom } from './game/GameRoom.js';
 import { clearRoomColors } from './game/ColorSchemes.js';
+import { supabase, isSupabaseConfigured } from './lib/supabase.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -505,6 +506,20 @@ io.on('connection', (socket) => {
 // Basic health check endpoint
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Database connectivity test - visit this URL to verify Supabase key is correct
+app.get('/test-db', async (_req, res) => {
+  if (!isSupabaseConfigured || !supabase) {
+    res.json({ status: 'not_configured' });
+    return;
+  }
+  const { error } = await supabase.from('profiles').select('id').limit(1);
+  if (error) {
+    res.json({ status: 'error', message: error.message, code: error.code });
+  } else {
+    res.json({ status: 'ok' });
+  }
 });
 
 httpServer.listen(PORT, () => {

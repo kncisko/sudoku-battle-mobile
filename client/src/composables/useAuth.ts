@@ -112,20 +112,25 @@ export function useAuth() {
 
   // Sign out
   const signOut = async () => {
+    user.value = null
+    session.value = null
+    profile.value = null
+
     try {
-      error.value = null
-      const { error: signOutError } = await supabase.auth.signOut()
-      if (signOutError) throw signOutError
-
-      user.value = null
-      session.value = null
-      profile.value = null
-
-      return { success: true }
-    } catch (err: any) {
-      error.value = err.message || 'Failed to sign out'
-      return { success: false, error: error.value }
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {
+      // ignore network errors - local state already cleared
     }
+
+    // Manually clear persisted Supabase session from localStorage
+    // (required on Capacitor iOS where signOut doesn't always clear storage)
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('sb-')) {
+        localStorage.removeItem(key)
+      }
+    }
+
+    return { success: true }
   }
 
   // Update username

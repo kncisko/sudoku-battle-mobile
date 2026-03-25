@@ -607,46 +607,39 @@ watch(gameStatus, async (newStatus, oldStatus) => {
   }
 })
 
-// Watch for game finish to save results to database
+// Save game result from winner's device (or player1 on tie) to avoid duplicates
 watch(isFinished, async (finished) => {
-  if (!finished || gameMode.value === 'classic') return
+  if (!finished || gameMode.value !== 'online') return
 
-  // Only save if both players are authenticated
   const player1 = players.value[0] as Player
   const player2 = players.value[1] as Player
+  if (!player1 || !player2) return
 
-  if (!player1 || !player2) {
-    console.log('⚠️ Cannot save game - missing player data')
-    return
-  }
+  const player1UserId = player1.userId || null
+  const player2UserId = player2.userId || null
+  if (!player1UserId || !player2UserId) return
 
-  // Check if at least one player is authenticated (has a user ID)
-  const player1UserId = 'userId' in player1 ? player1.userId || null : null
-  const player2UserId = 'userId' in player2 ? player2.userId || null : null
+  const myUserId = auth.user.value?.id
+  if (!myUserId) return
 
-  if (!player1UserId && !player2UserId) {
-    console.log('⚠️ Cannot save game - no authenticated players')
-    return
-  }
+  const winnerId = (winner.value as Player | null)?.userId || null
+  const isTie = !winner.value
 
-  // Calculate game duration (in seconds)
+  // Winner saves; on tie player1 saves — exactly one insert per game
+  const shouldSave = isTie ? myUserId === player1UserId : myUserId === winnerId
+  if (!shouldSave) return
+
   const gameDuration = Math.floor((Date.now() - (onlineGame.gameStartTime.value || Date.now())) / 1000)
 
-  // Determine winner ID
-  const winnerId = winner.value && 'userId' in winner.value ? winner.value.userId || null : null
-
-  const gameData = {
-    player1_id: (player1UserId || 'anonymous') as string,
-    player2_id: (player2UserId || 'anonymous') as string,
-    winner_id: winnerId as string | null,
+  await userStats.saveGameResult({
+    player1_id: player1UserId,
+    player2_id: player2UserId,
+    winner_id: winnerId,
     player1_score: scores.value[player1.id] || 0,
     player2_score: scores.value[player2.id] || 0,
     early_win: earlyWin.value || false,
     game_duration: gameDuration
-  }
-
-  console.log('🎮 Game finished, saving results:', gameData)
-  await userStats.saveGameResult(gameData)
+  })
 })
 
 // Keep screen awake during gameplay
@@ -1000,6 +993,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           @join-room="handleJoinRoom"
           @show-auth="showAuthModal = true"
           @return-to-mode-selection="gameModeSelected = false"
+          @cancel-room="handleEndGame"
         />
 
         <!-- Game Board (when playing or finished) - Battle mode only -->
