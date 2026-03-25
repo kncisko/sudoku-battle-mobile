@@ -130,29 +130,35 @@ onUnmounted(() => {
     </div>
 
     <!-- Sudoku grid visualization -->
-    <div class="grid grid-cols-9 gap-0 border-4 border-gray-800 w-fit mx-auto">
-      <div
-        v-for="(row, rowIndex) in exampleGrid"
-        :key="`row-${rowIndex}`"
-        class="contents"
-      >
-        <div
-          v-for="(cell, colIndex) in row"
-          :key="`cell-${rowIndex}-${colIndex}`"
-          :class="[
-            'w-10 h-10 flex items-center justify-center text-sm font-semibold',
-            'border border-gray-300 transition-all duration-500',
-            // Thicker borders for 3x3 boxes
-            (colIndex as number) % 3 === 2 && (colIndex as number) < 8 ? 'border-r-2 border-r-gray-600' : '',
-            (rowIndex as number) % 3 === 2 && (rowIndex as number) < 8 ? 'border-b-2 border-b-gray-600' : '',
-            // Highlight based on current rule
-            shouldHighlight(rowIndex as number, colIndex as number)
-              ? 'bg-blue-200 text-blue-900 scale-110 z-10 shadow-md'
-              : 'bg-white text-gray-700'
-          ]"
+    <!-- Outer border is a separate wrapper so it never gets clipped on any screen size -->
+    <div class="border-2 border-gray-800 w-full max-w-xs mx-auto">
+      <div class="grid grid-cols-9">
+        <template
+          v-for="(row, rowIndex) in exampleGrid"
+          :key="`row-${rowIndex}`"
         >
-          {{ cell }}
-        </div>
+          <div
+            v-for="(cell, colIndex) in row"
+            :key="`cell-${rowIndex}-${colIndex}`"
+            :class="[
+              'aspect-square flex items-center justify-center text-xs font-semibold transition-colors duration-500',
+              // Right border — not on last column (outer wrapper covers it)
+              (colIndex as number) < 8
+                ? ((colIndex as number) % 3 === 2 ? 'border-r-2 border-r-gray-600' : 'border-r border-r-gray-300')
+                : '',
+              // Bottom border — not on last row (outer wrapper covers it)
+              (rowIndex as number) < 8
+                ? ((rowIndex as number) % 3 === 2 ? 'border-b-2 border-b-gray-600' : 'border-b border-b-gray-300')
+                : '',
+              // Highlight based on current rule — no scale transform to avoid misalignment
+              shouldHighlight(rowIndex as number, colIndex as number)
+                ? 'bg-blue-200 text-blue-900'
+                : 'bg-white text-gray-700'
+            ]"
+          >
+            {{ cell }}
+          </div>
+        </template>
       </div>
     </div>
 
