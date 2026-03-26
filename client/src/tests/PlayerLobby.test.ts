@@ -1,0 +1,346 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import PlayerLobby from '../components/PlayerLobby.vue'
+import type { LobbyPlayerPublic } from '../composables/useSocket'
+
+// ── fixtures ─────────────────────────────────────────────────────────────────
+
+const ALICE: LobbyPlayerPublic = {
+  userId: 'u-alice',
+  name: 'Alice',
+  status: 'available',
+  winRate: 0.65,
+  totalGames: 30,
+}
+
+const BOB: LobbyPlayerPublic = {
+  userId: 'u-bob',
+  name: 'Bob',
+  status: 'idle',
+  winRate: 0.4,
+  totalGames: 10,
+}
+
+const IN_GAME: LobbyPlayerPublic = {
+  userId: 'u-carol',
+  name: 'Carol',
+  status: 'in_game',
+  winRate: 0.8,
+  totalGames: 100,
+}
+
+function mountLobby(overrides: Partial<{
+  lobbyPlayers: LobbyPlayerPublic[]
+  lobbyTotal: number
+  isConnected: boolean
+  authenticatedUserId: string | null
+  authenticatedUsername: string | null
+}> = {}) {
+  return mount(PlayerLobby, {
+    props: {
+      lobbyPlayers: [],
+      lobbyTotal: 0,
+      isConnected: true,
+      authenticatedUserId: null,
+      authenticatedUsername: null,
+      ...overrides,
+    },
+  })
+}
+
+// ── rendering ─────────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — rendering', () => {
+  it('shows "No players online" when list is empty', () => {
+    const wrapper = mountLobby()
+    expect(wrapper.text()).toContain('No players online')
+  })
+
+  it('renders each player row', () => {
+    const wrapper = mountLobby({ lobbyPlayers: [ALICE, BOB], lobbyTotal: 2 })
+    expect(wrapper.text()).toContain('Alice')
+    expect(wrapper.text()).toContain('Bob')
+  })
+
+  it('shows win rate and game count for players with history', () => {
+    const wrapper = mountLobby({ lobbyPlayers: [ALICE], lobbyTotal: 1 })
+    expect(wrapper.text()).toContain('65%')
+    expect(wrapper.text()).toContain('30')
+  })
+
+  it('omits stats row for players with 0 games', () => {
+    const noStats: LobbyPlayerPublic = { ...ALICE, winRate: 0, totalGames: 0 }
+    const wrapper = mountLobby({ lobbyPlayers: [noStats], lobbyTotal: 1 })
+    // the stats span is only rendered v-if="player.totalGames > 0"
+    expect(wrapper.text()).not.toContain('%')
+  })
+
+  it('labels the authenticated user with "(you)"', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE, BOB],
+      lobbyTotal: 2,
+      authenticatedUserId: 'u-alice',
+      authenticatedUsername: 'Alice',
+    })
+    expect(wrapper.text()).toContain('(you)')
+  })
+
+  it('does not show "(you)" for other players', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE, BOB],
+      lobbyTotal: 2,
+      authenticatedUserId: 'u-alice',
+    })
+    // Only Alice should have "(you)" - count occurrences
+    const text = wrapper.text()
+    const count = (text.match(/\(you\)/g) || []).length
+    expect(count).toBe(1)
+  })
+
+  it('shows the online count when total > 0', () => {
+    const wrapper = mountLobby({ lobbyPlayers: [ALICE], lobbyTotal: 1 })
+    expect(wrapper.text()).toContain('1 player online')
+  })
+
+  it('pluralises correctly for multiple players', () => {
+    const wrapper = mountLobby({ lobbyPlayers: [ALICE, BOB], lobbyTotal: 2 })
+    expect(wrapper.text()).toContain('2 players online')
+  })
+
+  it('shows status labels correctly', () => {
+    const wrapper = mountLobby({ lobbyPlayers: [ALICE, BOB, IN_GAME], lobbyTotal: 3 })
+    expect(wrapper.text()).toContain('Available')
+    expect(wrapper.text()).toContain('Away')
+    expect(wrapper.text()).toContain('In game')
+  })
+})
+
+// ── sign-in banner ────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — sign-in banner', () => {
+  it('shows sign-in prompt when not authenticated and connected', () => {
+    const wrapper = mountLobby({ authenticatedUserId: null, isConnected: true })
+    expect(wrapper.text()).toContain('Sign in')
+  })
+
+  it('hides sign-in prompt when authenticated', () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    expect(wrapper.text()).not.toContain('Sign in to appear')
+  })
+
+  it('emits showAuth when sign-in link is clicked', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: null })
+    const signInBtn = wrapper.find('button[onClick]')
+    // Find the sign-in button specifically (it's inside the banner)
+    const buttons = wrapper.findAll('button')
+    const signInButton = buttons.find(b => b.text().includes('Sign in'))
+    await signInButton!.trigger('click')
+    expect(wrapper.emitted('showAuth')).toHaveLength(1)
+  })
+})
+
+// ── offline banner ────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — offline state', () => {
+  it('shows offline banner when not connected', () => {
+    const wrapper = mountLobby({ isConnected: false })
+    expect(wrapper.text()).toContain('No connection')
+  })
+
+  it('hides Create Room and Join buttons when offline', () => {
+    const wrapper = mountLobby({ isConnected: false })
+    expect(wrapper.text()).not.toContain('Create Multiplayer Room')
+    expect(wrapper.text()).not.toContain('Join with Room Code')
+  })
+})
+
+// ── name input ────────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — player name input', () => {
+  it('shows name input when not authenticated', () => {
+    const wrapper = mountLobby({ authenticatedUserId: null })
+    expect(wrapper.find('input[placeholder="Enter your name..."]').exists()).toBe(true)
+  })
+
+  it('hides name input when authenticated', () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    expect(wrapper.find('input[placeholder="Enter your name..."]').exists()).toBe(false)
+  })
+
+  it('pre-fills name from authenticatedUsername prop', async () => {
+    // mount unauthenticated, then check that the watcher fills the name when prop changes
+    const wrapper = mountLobby({ authenticatedUserId: null, authenticatedUsername: null })
+    await wrapper.setProps({ authenticatedUsername: 'Eve' })
+    const input = wrapper.find('input[placeholder="Enter your name..."]')
+    expect((input.element as HTMLInputElement).value).toBe('Eve')
+  })
+})
+
+// ── create room ───────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — Create Room', () => {
+  it('emits createRoom with authenticated username', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    await wrapper.find('button.bg-blue-500').trigger('click')
+    expect(wrapper.emitted('createRoom')).toEqual([['Alice']])
+  })
+
+  it('emits createRoom with typed name when not authenticated', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: null })
+    const nameInput = wrapper.find('input[placeholder="Enter your name..."]')
+    await nameInput.setValue('Dave')
+    await wrapper.find('button.bg-blue-500').trigger('click')
+    expect(wrapper.emitted('createRoom')).toEqual([['Dave']])
+  })
+
+  it('uses a random fallback name when name is blank', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: null })
+    // leave name blank, click Create Room
+    await wrapper.find('button.bg-blue-500').trigger('click')
+    const emitted = wrapper.emitted('createRoom') as string[][]
+    expect(emitted[0][0]).toMatch(/^Player\d+$/)
+  })
+})
+
+// ── join form ─────────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — Join with Code', () => {
+  it('shows join form after clicking "Join with Room Code"', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    await wrapper.find('button.bg-purple-500').trigger('click')
+    expect(wrapper.find('input[placeholder="Enter 6-character code..."]').exists()).toBe(true)
+  })
+
+  it('emits joinRoom with code and name', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    await wrapper.find('button.bg-purple-500').trigger('click')
+    const codeInput = wrapper.find('input[placeholder="Enter 6-character code..."]')
+    await codeInput.setValue('abc123')
+    await wrapper.find('button.bg-green-500').trigger('click')
+    expect(wrapper.emitted('joinRoom')).toEqual([['ABC123', 'Alice']])
+  })
+
+  it('normalises room code to uppercase', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    await wrapper.find('button.bg-purple-500').trigger('click')
+    await wrapper.find('input[placeholder="Enter 6-character code..."]').setValue('abcdef')
+    await wrapper.find('button.bg-green-500').trigger('click')
+    const emitted = wrapper.emitted('joinRoom') as string[][]
+    expect(emitted[0][0]).toBe('ABCDEF')
+  })
+
+  it('does not emit joinRoom when code is blank', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    await wrapper.find('button.bg-purple-500').trigger('click')
+    await wrapper.find('button.bg-green-500').trigger('click')
+    expect(wrapper.emitted('joinRoom')).toBeUndefined()
+  })
+
+  it('Cancel hides the join form', async () => {
+    const wrapper = mountLobby({ authenticatedUserId: 'u-1', authenticatedUsername: 'Alice' })
+    await wrapper.find('button.bg-purple-500').trigger('click')
+    // Cancel button is the last button in the join form
+    const buttons = wrapper.findAll('button')
+    const cancelBtn = buttons.find(b => b.text() === 'Cancel')
+    await cancelBtn!.trigger('click')
+    expect(wrapper.find('input[placeholder="Enter 6-character code..."]').exists()).toBe(false)
+  })
+})
+
+// ── back ──────────────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — Back button', () => {
+  it('emits back when Back button is clicked', async () => {
+    const wrapper = mountLobby()
+    const buttons = wrapper.findAll('button')
+    const backBtn = buttons.find(b => b.text().includes('Back to Game Selection'))
+    await backBtn!.trigger('click')
+    expect(wrapper.emitted('back')).toHaveLength(1)
+  })
+})
+
+// ── challenge button ──────────────────────────────────────────────────────────
+
+describe('PlayerLobby — Challenge button', () => {
+  it('shows a disabled Challenge button for available non-self players', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE],
+      lobbyTotal: 1,
+      authenticatedUserId: 'u-other',
+    })
+    const btn = wrapper.find('button[disabled]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text()).toBe('Challenge')
+  })
+
+  it('does not show Challenge button for in_game players', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [IN_GAME],
+      lobbyTotal: 1,
+      authenticatedUserId: 'u-other',
+    })
+    expect(wrapper.text()).not.toContain('Challenge')
+  })
+
+  it('does not show Challenge button for the authenticated user themselves', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE],
+      lobbyTotal: 1,
+      authenticatedUserId: 'u-alice',
+    })
+    expect(wrapper.text()).not.toContain('Challenge')
+  })
+})
+
+// ── idle detection ────────────────────────────────────────────────────────────
+
+describe('PlayerLobby — idle detection', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('emits setIdle after 5 minutes of inactivity', async () => {
+    const wrapper = mountLobby()
+    vi.advanceTimersByTime(5 * 60 * 1000)
+    expect(wrapper.emitted('setIdle')).toHaveLength(1)
+  })
+
+  it('does not emit setIdle before 5 minutes', () => {
+    const wrapper = mountLobby()
+    vi.advanceTimersByTime(4 * 60 * 1000 + 59_000)
+    expect(wrapper.emitted('setIdle')).toBeUndefined()
+  })
+
+  it('resets the idle timer on user interaction', async () => {
+    const wrapper = mountLobby()
+    // Advance 4 minutes
+    vi.advanceTimersByTime(4 * 60 * 1000)
+    // Simulate user touching the screen (fires the document listener)
+    document.dispatchEvent(new Event('touchstart'))
+    // Advance another 4 minutes — still under the 5-min window
+    vi.advanceTimersByTime(4 * 60 * 1000)
+    expect(wrapper.emitted('setIdle')).toBeUndefined()
+  })
+
+  it('emits setAvailable after going idle then interacting', async () => {
+    const wrapper = mountLobby()
+    // Go idle
+    vi.advanceTimersByTime(5 * 60 * 1000)
+    expect(wrapper.emitted('setIdle')).toHaveLength(1)
+    // Come back
+    document.dispatchEvent(new Event('mousedown'))
+    expect(wrapper.emitted('setAvailable')).toHaveLength(1)
+  })
+
+  it('cleans up the timer on unmount', () => {
+    const wrapper = mountLobby()
+    wrapper.unmount()
+    // No timer should fire after unmount
+    vi.advanceTimersByTime(10 * 60 * 1000)
+    expect(wrapper.emitted('setIdle')).toBeUndefined()
+  })
+})
