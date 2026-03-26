@@ -6,6 +6,10 @@ package-lock.json
 client/dist/
 server/dist/
 
+# Test coverage
+client/coverage/
+server/coverage/
+
 # Environment variables
 .env
 .env.local

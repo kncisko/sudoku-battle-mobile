@@ -8,6 +8,7 @@
     "start": "node dist/server/src/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
+    
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.2",
