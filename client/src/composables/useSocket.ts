@@ -89,44 +89,35 @@ export function useSocket() {
 
   // Client-side timer management
   let turnTimer: number | null = null
-  const TURN_TIME_LIMIT = 20 // seconds per turn (Easy: 30s, Normal: 20s, Evil: 10s)
-  let turnStartTimestamp: number = 0 // Server timestamp when turn started
+  const TURN_TIME_LIMIT = 20 // seconds per turn
 
-  // Start the turn timer (countdown from TURN_TIME_LIMIT seconds)
-  const startTurnTimer = (serverTimestamp?: number) => {
-    // Clear any existing timer
+  // Start the turn timer counting down from turnTimeRemaining seconds.
+  // Uses the local clock — no server clock sync needed since both clients
+  // receive the same starting value and phone clocks don't drift.
+  const startTurnTimer = (turnTimeRemaining: number = TURN_TIME_LIMIT) => {
     clearTurnTimer()
 
-    // Store the server timestamp
-    if (serverTimestamp) {
-      turnStartTimestamp = serverTimestamp
-    }
+    const startValue = Math.min(TURN_TIME_LIMIT, Math.max(0, Math.round(turnTimeRemaining)))
+    const timerStartedAt = Date.now()
+    remainingTime.value = startValue
+    console.log(`⏱ startTurnTimer: ${startValue}s`)
 
-    // Calculate initial remaining time based on server timestamp
-    const elapsed = serverTimestamp ? Math.floor((Date.now() - serverTimestamp) / 1000) : 0
-    remainingTime.value = Math.max(0, TURN_TIME_LIMIT - elapsed)
-
-    // Start countdown
     turnTimer = window.setInterval(() => {
-      // Calculate remaining time from server timestamp
-      const elapsedSeconds = Math.floor((Date.now() - turnStartTimestamp) / 1000)
-      remainingTime.value = Math.max(0, TURN_TIME_LIMIT - elapsedSeconds)
+      const elapsedSeconds = Math.floor((Date.now() - timerStartedAt) / 1000)
+      remainingTime.value = Math.max(0, startValue - elapsedSeconds)
 
-      // Play tick sound during last 5 seconds
       if (remainingTime.value > 0 && remainingTime.value <= 5) {
         playTickSound()
       }
 
-      // When timer reaches 0, emit time_expired event (only if it's my turn)
       if (remainingTime.value <= 0) {
         clearTurnTimer()
-        // Only emit time_expired if it's actually my turn
         if (socket.value && currentTurn.value === myPlayerId.value) {
           console.log('Timer expired, emitting time_expired event')
           socket.value.emit('time_expired')
         }
       }
-    }, 1000) // Update every second
+    }, 1000)
   }
 
   // Clear the turn timer
@@ -177,6 +168,7 @@ export function useSocket() {
       }
     })
 
+
     socket.value.on('disconnect', (reason) => {
       console.log('❌ Disconnected from server:', reason)
       isConnected.value = false
@@ -210,7 +202,7 @@ export function useSocket() {
       gameStatus: GameStatus
       currentTurn: string | null
       scores: Record<string, number>
-      turnStartTime?: number
+      turnTimeRemaining?: number
     }) => {
       console.log('📦 Game state restored')
 
@@ -232,8 +224,8 @@ export function useSocket() {
       }
 
       // Restart timer if game is playing
-      if (data.gameStatus === 'playing' && data.turnStartTime) {
-        startTurnTimer(data.turnStartTime)
+      if (data.gameStatus === 'playing' && data.turnTimeRemaining !== undefined) {
+        startTurnTimer(data.turnTimeRemaining)
       }
 
       // Save restored game state to localStorage
@@ -316,7 +308,6 @@ export function useSocket() {
       players: Player[]
       currentTurn: string
       scores: Record<string, number>
-      turnStartTime?: number
     }) => {
       console.log('Game starting:', data)
 
@@ -337,8 +328,8 @@ export function useSocket() {
         gameStatus.value = 'playing'
         gameStarting.value = false
 
-        // Start timer fresh at 20 seconds after animation completes
-        startTurnTimer(Date.now())
+        // Start fresh 20s timer using local clock
+        startTurnTimer()
       }, 2000)
     })
 
@@ -350,7 +341,7 @@ export function useSocket() {
       players?: Player[]
       revealedCell?: { row: number; col: number }
       timerExpired?: boolean
-      turnStartTime?: number
+      turnTimeRemaining?: number
       lastMove?: {
         playerId: string
         row: number
@@ -409,10 +400,9 @@ export function useSocket() {
         }, 2000)
       }
 
-      // Always start the timer for the current turn
-      // Both players see the timer running synchronized to server time
+      // Start timer for the new turn
       console.log('Turn switched - starting timer for all players to see')
-      startTurnTimer(data.turnStartTime)
+      startTurnTimer(data.turnTimeRemaining)
     })
 
     // Game end

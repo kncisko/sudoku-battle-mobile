@@ -30,6 +30,7 @@ const io = new Server(httpServer, {
 });
 
 const PORT = process.env.PORT || 3000;
+const TURN_TIME_LIMIT = 20; // seconds per turn — must match client
 
 // Room management
 const rooms = new Map<string, GameRoom>();
@@ -84,7 +85,7 @@ async function makeAIMove(roomCode: string): Promise<void> {
     currentTurn: room.getCurrentPlayer()?.id,
     players: room.getPlayers(), // Include players for state sync
     revealedCell: result.revealedCell,
-    turnStartTime: Date.now(),
+    turnTimeRemaining: TURN_TIME_LIMIT,
     lastMove: {
       playerId: currentPlayer.id,
       row,
@@ -123,6 +124,11 @@ async function makeAIMove(roomCode: string): Promise<void> {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
+
+  // Clock sync: client sends its timestamp, server echoes it back with server time
+  socket.on('ping_time', (data: { clientTime: number }) => {
+    socket.emit('pong_time', { serverTime: Date.now(), clientTime: data.clientTime });
+  });
 
   // Create a new room
   socket.on('create_room', (data: { playerName: string; userId?: string | null }) => {
@@ -296,7 +302,7 @@ io.on('connection', (socket) => {
         currentTurn: room.getCurrentPlayer()?.id,
         players: room.getPlayers(), // Include players for state sync
         revealedCell: result.revealedCell,
-        turnStartTime: Date.now(),
+        turnTimeRemaining: TURN_TIME_LIMIT,
         timerExpired: true
       });
 
@@ -357,7 +363,7 @@ io.on('connection', (socket) => {
       gameStatus: room.getStatus(),
       currentTurn: room.getCurrentPlayer()?.id || null,
       scores: room.getScores(),
-      turnStartTime: room.getTurnStartTime() // Use actual turn start time
+      turnTimeRemaining: Math.max(0, TURN_TIME_LIMIT - Math.floor((Date.now() - room.getTurnStartTime()) / 1000))
     });
 
     console.log(`[${roomCode}] Game state sent to ${socket.id}${player ? ` (${player.name})` : ''}`);
@@ -414,7 +420,7 @@ io.on('connection', (socket) => {
       currentTurn: room.getCurrentPlayer()?.id,
       players: room.getPlayers(), // Include players for state sync
       revealedCell: result.revealedCell,
-      turnStartTime: Date.now(),
+      turnTimeRemaining: TURN_TIME_LIMIT,
       lastMove: {
         playerId: player.id,
         row: data.row,
