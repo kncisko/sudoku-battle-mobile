@@ -1,0 +1,545 @@
+import 'dotenv/config';
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { GameRoom } from './game/GameRoom.js';
+import { clearRoomColors } from './game/ColorSchemes.js';
+import { supabase, isSupabaseConfigured } from './lib/supabase.js';
+import { Lobby } from './game/Lobby.js';
+
+export const app = express();
+export const httpServer = createServer(app);
+
+// Configure CORS for Express
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Development (default Vite port)
+    'http://localhost:5174', // Development (alternate port)
+    'http://192.168.0.178:5173', // Local network development
+    'https://sudoku-battle.kresimirnovak.eu' // Production
+  ],
+  methods: ['GET', 'POST'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+// Socket.IO setup with CORS
+export const io = new Server(httpServer, {
+  cors: corsOptions
+});
+
+const TURN_TIME_LIMIT = 20; // seconds per turn — must match client
+
+// Room management
+const rooms = new Map<string, GameRoom>();
+const socketToRoom = new Map<string, string>(); // socketId → roomCode
+
+// Lobby — IO injected as a dependency so Lobby.ts stays testable
+const lobby = new Lobby((socketId, players, total) => {
+  io.to(socketId).emit('lobby_update', { players, total });
+});
+
+async function fetchPlayerRating(userId: string): Promise<{ winRate: number; totalGames: number }> {
+  if (!isSupabaseConfigured || !supabase) return { winRate: 0, totalGames: 0 };
+  try {
+    const { data } = await supabase
+      .from('leaderboard')
+      .select('win_rate, total_games')
+      .eq('user_id', userId)
+      .single();
+    return { winRate: data?.win_rate ?? 0, totalGames: data?.total_games ?? 0 };
+  } catch {
+    return { winRate: 0, totalGames: 0 };
+  }
+}
+
+// Generate unique room code
+function generateRoomCode(): string {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+
+  do {
+    code = '';
+    for (let i = 0; i < 6; i++) {
+      code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+  } while (rooms.has(code));
+
+  return code;
+}
+
+// Make AI move
+async function makeAIMove(roomCode: string): Promise<void> {
+  const room = rooms.get(roomCode);
+  if (!room || !room.isAIEnabled()) {
+    return;
+  }
+
+  const currentPlayer = room.getCurrentPlayer();
+  if (!currentPlayer || currentPlayer.socketId !== 'ai') {
+    return;
+  }
+
+  // Get AI's move
+  const aiMove = room.getAIMove();
+  if (!aiMove) {
+    console.log(`[${roomCode}] AI has no valid moves`);
+    return;
+  }
+
+  const { row, col, value } = aiMove;
+  console.log(`[${roomCode}] AI attempting move: row=${row}, col=${col}, value=${value}`);
+
+  // Make the move
+  const result = room.makeMove(currentPlayer.id, row, col, value);
+
+  console.log(`[${roomCode}] AI move result: ${result.success ? 'CORRECT ✓' : 'WRONG ✗'}`);
+
+  // Emit the board update
+  io.to(roomCode).emit('board_update', {
+    board: room.getBoard(),
+    scores: room.getScores(),
+    currentTurn: room.getCurrentPlayer()?.id,
+    players: room.getPlayers(),
+    revealedCell: result.revealedCell,
+    turnTimeRemaining: TURN_TIME_LIMIT,
+    lastMove: {
+      playerId: currentPlayer.id,
+      row,
+      col,
+      value,
+      correct: result.success
+    }
+  });
+
+  // Check if game is finished
+  if (room.isGameFinished()) {
+    const winner = room.getWinner();
+
+    await room.getGameTracker().trackGameResult(winner, room.getScores(), room.isEarlyWin());
+
+    io.to(roomCode).emit('game_end', {
+      winner: winner,
+      scores: room.getScores(),
+      players: room.getPlayers(),
+      earlyWin: room.isEarlyWin()
+    });
+
+    console.log(`[${roomCode}] Game finished`);
+    return;
+  }
+
+  // If AI made a correct move, it continues playing
+  if (result.success && room.getCurrentPlayer()?.socketId === 'ai') {
+    setTimeout(() => {
+      makeAIMove(roomCode);
+    }, 1500);
+  }
+}
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log(`Client connected: ${socket.id}`);
+
+  // Clock sync: client sends its timestamp, server echoes it back with server time
+  socket.on('ping_time', (data: { clientTime: number }) => {
+    socket.emit('pong_time', { serverTime: Date.now(), clientTime: data.clientTime });
+  });
+
+  // ── Lobby events ────────────────────────────────────────────────────────────
+
+  socket.on('join_lobby', async (data: { userId: string; name: string }) => {
+    const { userId, name } = data;
+    if (!userId) {
+      socket.emit('lobby_error', { message: 'Authentication required to join lobby' });
+      return;
+    }
+
+    const { winRate, totalGames } = await fetchPlayerRating(userId);
+    lobby.add(socket.id, userId, name, winRate, totalGames);
+    console.log(`${name} joined lobby (${lobby.size()} online)`);
+  });
+
+  socket.on('leave_lobby', () => {
+    const player = lobby.removeBySocket(socket.id);
+    if (player) {
+      console.log(`${player.name} left lobby (${lobby.size()} remaining)`);
+    }
+  });
+
+  // Client reports 5-min inactivity → idle
+  socket.on('set_idle', () => {
+    lobby.setStatusBySocket(socket.id, 'idle');
+  });
+
+  // Client reports activity after idle
+  socket.on('set_available', () => {
+    lobby.setStatusBySocket(socket.id, 'available');
+  });
+
+  // Create a new room
+  socket.on('create_room', (data: { playerName: string; userId?: string | null }) => {
+    const roomCode = generateRoomCode();
+    const room = new GameRoom(roomCode);
+
+    room.addPlayer(socket.id, data.playerName || 'Player 1', data.userId);
+    rooms.set(roomCode, room);
+    socketToRoom.set(socket.id, roomCode);
+
+    if (data.userId) lobby.setStatus(data.userId, 'in_game');
+
+    socket.join(roomCode);
+
+    console.log(`Room ${roomCode} created by ${socket.id}`);
+
+    socket.emit('room_created', {
+      roomCode,
+      players: room.getPlayers(),
+      board: room.getBoard(),
+      gameStatus: room.getStatus()
+    });
+  });
+
+  // Create a new AI game
+  socket.on('create_ai_game', (data: { playerName: string; difficulty?: 'beginner' | 'normal' | 'expert'; userId?: string | null }) => {
+    const roomCode = generateRoomCode();
+    const difficulty = data.difficulty || 'normal';
+    const room = new GameRoom(roomCode, true, difficulty);
+
+    room.addPlayer(socket.id, data.playerName || 'Player 1', data.userId);
+    rooms.set(roomCode, room);
+    socketToRoom.set(socket.id, roomCode);
+
+    if (data.userId) lobby.setStatus(data.userId, 'in_game');
+
+    socket.join(roomCode);
+
+    console.log(`AI game ${roomCode} created by ${socket.id}`);
+
+    socket.emit('room_created', {
+      roomCode,
+      players: room.getPlayers(),
+      board: room.getBoard(),
+      gameStatus: room.getStatus()
+    });
+
+    setTimeout(() => {
+      if (room.getStatus() === 'waiting') {
+        room.startGame();
+
+        io.to(roomCode).emit('game_start', {
+          board: room.getBoard(),
+          players: room.getPlayers(),
+          currentTurn: room.getCurrentPlayer()?.id,
+          scores: room.getScores(),
+          turnStartTime: room.getTurnStartTime()
+        });
+
+        console.log(`AI game ${roomCode} started`);
+
+        const currentPlayer = room.getCurrentPlayer();
+        if (currentPlayer?.socketId === 'ai') {
+          setTimeout(() => {
+            makeAIMove(roomCode);
+          }, 1500);
+        }
+      }
+    }, 2000);
+  });
+
+  // Join an existing room
+  socket.on('join_room', (data: { roomCode: string; playerName: string; userId?: string | null }) => {
+    const roomCode = data.roomCode.toUpperCase();
+    const room = rooms.get(roomCode);
+
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    if (room.isFull()) {
+      socket.emit('error', { message: 'Room is full' });
+      return;
+    }
+
+    room.addPlayer(socket.id, data.playerName || 'Player 2', data.userId);
+    socketToRoom.set(socket.id, roomCode);
+
+    if (data.userId) lobby.setStatus(data.userId, 'in_game');
+
+    socket.join(roomCode);
+
+    console.log(`${socket.id} joined room ${roomCode}`);
+
+    socket.emit('room_joined', {
+      roomCode,
+      players: room.getPlayers(),
+      board: room.getBoard(),
+      gameStatus: room.getStatus()
+    });
+
+    socket.to(roomCode).emit('player_joined', {
+      players: room.getPlayers()
+    });
+
+    if (room.isFull()) {
+      setTimeout(() => {
+        room.startGame();
+
+        io.to(roomCode).emit('game_start', {
+          board: room.getBoard(),
+          players: room.getPlayers(),
+          currentTurn: room.getCurrentPlayer()?.id,
+          scores: room.getScores(),
+          turnStartTime: room.getTurnStartTime()
+        });
+
+        console.log(`Game started in room ${roomCode}`);
+      }, 2000);
+    }
+  });
+
+  // Handle timer expiry
+  socket.on('time_expired', async () => {
+    const roomCode = socketToRoom.get(socket.id);
+    if (!roomCode) return;
+
+    const room = rooms.get(roomCode);
+    if (!room) return;
+
+    const currentPlayer = room.getCurrentPlayer();
+    if (!currentPlayer || currentPlayer.socketId !== socket.id) {
+      console.log(`Timer expired for ${socket.id} but it's not their turn`);
+      return;
+    }
+
+    console.log(`Timer expired for ${currentPlayer.name} in room ${roomCode}`);
+
+    const result = room.makeMove('system', -1, -1, -1);
+
+    if (room.isGameFinished()) {
+      const winner = room.getWinner();
+
+      await room.getGameTracker().trackGameResult(winner, room.getScores(), room.isEarlyWin());
+
+      io.to(roomCode).emit('game_end', {
+        winner,
+        scores: room.getScores(),
+        players: room.getPlayers(),
+        earlyWin: room.isEarlyWin()
+      });
+    } else {
+      io.to(roomCode).emit('board_update', {
+        board: room.getBoard(),
+        scores: room.getScores(),
+        currentTurn: room.getCurrentPlayer()?.id,
+        players: room.getPlayers(),
+        revealedCell: result.revealedCell,
+        turnTimeRemaining: TURN_TIME_LIMIT,
+        timerExpired: true
+      });
+
+      if (room.isAIEnabled()) {
+        const nextPlayer = room.getCurrentPlayer();
+        if (nextPlayer?.socketId === 'ai') {
+          setTimeout(() => {
+            makeAIMove(roomCode);
+          }, 2000);
+        }
+      }
+    }
+  });
+
+  // Handle game state request (for reconnection)
+  socket.on('request_game_state', (data: { roomCode: string; playerId?: string }) => {
+    const roomCode = data.roomCode.toUpperCase();
+    const room = rooms.get(roomCode);
+
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    let player = room.getPlayerBySocketId(socket.id);
+    let wasReconnection = false;
+
+    if (!player && data.playerId) {
+      player = room.getPlayerById(data.playerId);
+
+      if (player && player.socketId !== 'ai') {
+        const oldSocketId = player.socketId;
+        player.socketId = socket.id;
+
+        socketToRoom.delete(oldSocketId);
+        socketToRoom.set(socket.id, roomCode);
+
+        wasReconnection = true;
+        console.log(`[${roomCode}] Player ${player.name} reconnected: ${oldSocketId} -> ${socket.id}`);
+      }
+    }
+
+    socket.join(roomCode);
+    socketToRoom.set(socket.id, roomCode);
+
+    socket.emit('game_state', {
+      roomCode,
+      players: room.getPlayers(),
+      board: room.getBoard(),
+      gameStatus: room.getStatus(),
+      currentTurn: room.getCurrentPlayer()?.id || null,
+      scores: room.getScores(),
+      turnTimeRemaining: Math.max(0, TURN_TIME_LIMIT - Math.floor((Date.now() - room.getTurnStartTime()) / 1000))
+    });
+
+    console.log(`[${roomCode}] Game state sent to ${socket.id}${player ? ` (${player.name})` : ''}`);
+
+    if (wasReconnection && player) {
+      socket.to(roomCode).emit('player_reconnected', {
+        player: player,
+        players: room.getPlayers()
+      });
+    }
+  });
+
+  // Handle player move
+  socket.on('make_move', async (data: { row: number; col: number; value: number }) => {
+    const roomCode = socketToRoom.get(socket.id);
+    if (!roomCode) {
+      socket.emit('error', { message: 'Not in a room' });
+      return;
+    }
+
+    const room = rooms.get(roomCode);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    const currentPlayer = room.getCurrentPlayer();
+    if (!currentPlayer || currentPlayer.socketId !== socket.id) {
+      socket.emit('error', { message: 'Not your turn' });
+      return;
+    }
+
+    const player = room.getPlayerBySocketId(socket.id);
+    if (!player) {
+      socket.emit('error', { message: 'Player not found' });
+      return;
+    }
+
+    const result = room.makeMove(player.id, data.row, data.col, data.value);
+
+    console.log(
+      `${player.name} made move at (${data.row},${data.col}) = ${data.value}: ${result.success ? 'CORRECT' : 'WRONG'}`
+    );
+
+    io.to(roomCode).emit('board_update', {
+      board: room.getBoard(),
+      scores: room.getScores(),
+      currentTurn: room.getCurrentPlayer()?.id,
+      players: room.getPlayers(),
+      revealedCell: result.revealedCell,
+      turnTimeRemaining: TURN_TIME_LIMIT,
+      lastMove: {
+        playerId: player.id,
+        row: data.row,
+        col: data.col,
+        value: data.value,
+        correct: result.success
+      }
+    });
+
+    if (room.isGameFinished()) {
+      const winner = room.getWinner();
+
+      await room.getGameTracker().trackGameResult(winner, room.getScores(), room.isEarlyWin());
+
+      io.to(roomCode).emit('game_end', {
+        winner: winner,
+        scores: room.getScores(),
+        players: room.getPlayers(),
+        earlyWin: room.isEarlyWin()
+      });
+
+      console.log(`Game ended in room ${roomCode}. Winner: ${winner?.name || 'TIE'}${room.isEarlyWin() ? ' (Early Win)' : ''}`);
+    } else if (room.isAIEnabled()) {
+      const nextPlayer = room.getCurrentPlayer();
+      if (nextPlayer?.socketId === 'ai') {
+        setTimeout(() => {
+          makeAIMove(roomCode);
+        }, 1500);
+      }
+    }
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+
+    // Remove from lobby if present
+    const removedFromLobby = lobby.removeBySocket(socket.id);
+    if (removedFromLobby) {
+      console.log(`${removedFromLobby.name} removed from lobby on disconnect (${lobby.size()} remaining)`);
+    }
+
+    const roomCode = socketToRoom.get(socket.id);
+    if (roomCode) {
+      const room = rooms.get(roomCode);
+
+      if (room) {
+        const player = room.getPlayerBySocketId(socket.id);
+
+        if (room.getStatus() !== 'playing') {
+          const removedPlayer = room.removePlayer(socket.id);
+
+          if (removedPlayer) {
+            console.log(`${removedPlayer.name} left room ${roomCode}`);
+
+            socket.to(roomCode).emit('player_left', {
+              player: removedPlayer,
+              players: room.getPlayers()
+            });
+
+            if (room.getPlayerCount() === 0) {
+              rooms.delete(roomCode);
+              clearRoomColors(roomCode);
+              console.log(`Room ${roomCode} deleted (empty)`);
+            }
+          }
+
+          socketToRoom.delete(socket.id);
+        } else {
+          if (player && player.socketId !== 'ai') {
+            console.log(`${player.name} disconnected from room ${roomCode} (keeping for reconnection)`);
+
+            socket.to(roomCode).emit('player_disconnected', {
+              player: player,
+              players: room.getPlayers()
+            });
+          }
+        }
+      }
+    }
+  });
+});
+
+// Basic health check endpoint
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Database connectivity test
+app.get('/test-db', async (_req, res) => {
+  if (!isSupabaseConfigured || !supabase) {
+    res.json({ status: 'not_configured' });
+    return;
+  }
+  const { error } = await supabase.from('profiles').select('id').limit(1);
+  if (error) {
+    res.json({ status: 'error', message: error.message, code: error.code });
+  } else {
+    res.json({ status: 'ok' });
+  }
+});
