@@ -9,6 +9,7 @@ import { initializeTickSound } from './composables/useTickSound'
 import SudokuBoard from './components/SudokuBoard.vue'
 import GameLobby from './components/GameLobby.vue'
 import PlayerLobby from './components/PlayerLobby.vue'
+import ChallengeModal from './components/ChallengeModal.vue'
 import GameModeSelector from './components/GameModeSelector.vue'
 import ClassicDifficultySelector from './components/ClassicDifficultySelector.vue'
 import HelpModal from './components/HelpModal.vue'
@@ -310,6 +311,13 @@ const handlePlayerLobbyBack = () => {
   showPlayerLobby.value = false
   gameModeSelected.value = false
 }
+
+// When a room code arrives while in the PlayerLobby (challenge accepted), navigate to game room
+watch(() => onlineGame.roomCode.value, (code) => {
+  if (code && showPlayerLobby.value) {
+    showPlayerLobby.value = false
+  }
+})
 
 // Join/leave lobby when PlayerLobby screen is shown/hidden
 watch(showPlayerLobby, (showing) => {
@@ -1018,12 +1026,16 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           :is-connected="isConnected"
           :authenticated-user-id="auth.user.value?.id || null"
           :authenticated-username="auth.profile.value?.username || null"
+          :outgoing-challenge="onlineGame.outgoingChallenge.value"
+          :challenge-error="onlineGame.challengeError.value"
           @create-room="handlePlayerLobbyCreateRoom"
           @join-room="handlePlayerLobbyJoinRoom"
           @back="handlePlayerLobbyBack"
           @show-auth="showAuthModal = true"
           @set-idle="onlineGame.setLobbyIdle()"
           @set-available="onlineGame.setLobbyAvailable()"
+          @challenge="onlineGame.sendChallenge($event)"
+          @cancel-challenge="onlineGame.cancelChallenge($event)"
         />
 
         <!-- Game Lobby (before game starts) - only for Battle mode, not when in Player Lobby -->
@@ -1191,6 +1203,14 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
       </div>
     </div>
   </div>
+
+  <!-- Incoming Challenge Modal -->
+  <ChallengeModal
+    v-if="onlineGame.incomingChallenge.value"
+    :challenge="onlineGame.incomingChallenge.value"
+    @accept="onlineGame.acceptChallenge($event)"
+    @decline="onlineGame.declineChallenge($event)"
+  />
 
   <!-- Help Modal -->
   <HelpModal

@@ -21,6 +21,19 @@ export interface LobbyPlayerPublic {
   totalGames: number
 }
 
+export interface IncomingChallenge {
+  challengerUserId: string
+  challengerName: string
+  challengerWinRate: number
+  challengerTotalGames: number
+  timeoutSecs: number
+}
+
+export interface OutgoingChallenge {
+  targetUserId: string
+  targetName: string
+}
+
 export function useSocket() {
   const socket = ref<Socket | null>(null)
   const isConnected = ref(false)
@@ -52,6 +65,11 @@ export function useSocket() {
   // Track lobby membership so it can be re-joined on reconnect
   const lobbyUserId = ref<string | null>(null)
   const lobbyUserName = ref<string | null>(null)
+
+  // Challenge state
+  const incomingChallenge = ref<IncomingChallenge | null>(null)
+  const outgoingChallenge = ref<OutgoingChallenge | null>(null)
+  const challengeError = ref<string | null>(null)
 
   // LocalStorage key for game state backup
   const GAME_STATE_KEY = 'sudoku_battle_game_state'
@@ -463,6 +481,33 @@ export function useSocket() {
       lobbyPlayers.value = data.players
       lobbyTotal.value = data.total
     })
+
+    // Challenge events
+    socket.value.on('challenge_received', (data: IncomingChallenge) => {
+      incomingChallenge.value = data
+    })
+
+    socket.value.on('challenge_sent', (data: { targetUserId: string; targetName: string }) => {
+      outgoingChallenge.value = data
+    })
+
+    socket.value.on('challenge_declined', (_data: { targetUserId: string; targetName: string }) => {
+      outgoingChallenge.value = null
+    })
+
+    socket.value.on('challenge_cancelled', (_data: { challengerUserId: string; challengerName: string }) => {
+      incomingChallenge.value = null
+    })
+
+    socket.value.on('challenge_timeout', (_data: unknown) => {
+      incomingChallenge.value = null
+      outgoingChallenge.value = null
+    })
+
+    socket.value.on('challenge_error', (data: { message: string }) => {
+      challengeError.value = data.message
+      setTimeout(() => { challengeError.value = null }, 3000)
+    })
   })
 
   onUnmounted(() => {
@@ -521,6 +566,15 @@ export function useSocket() {
   }
 
   const leaveLobby = () => {
+    // Cancel any active challenge before leaving
+    if (outgoingChallenge.value) {
+      socket.value?.emit('challenge_cancel', { targetUserId: outgoingChallenge.value.targetUserId })
+      outgoingChallenge.value = null
+    }
+    if (incomingChallenge.value) {
+      socket.value?.emit('challenge_decline', { challengerUserId: incomingChallenge.value.challengerUserId })
+      incomingChallenge.value = null
+    }
     lobbyUserId.value = null
     lobbyUserName.value = null
     socket.value?.emit('leave_lobby')
@@ -534,6 +588,26 @@ export function useSocket() {
 
   const setLobbyAvailable = () => {
     socket.value?.emit('set_available')
+  }
+
+  // Challenge actions
+  const sendChallenge = (targetUserId: string) => {
+    socket.value?.emit('challenge_send', { targetUserId })
+  }
+
+  const acceptChallenge = (challengerUserId: string) => {
+    incomingChallenge.value = null
+    socket.value?.emit('challenge_accept', { challengerUserId })
+  }
+
+  const declineChallenge = (challengerUserId: string) => {
+    incomingChallenge.value = null
+    socket.value?.emit('challenge_decline', { challengerUserId })
+  }
+
+  const cancelChallenge = (targetUserId: string) => {
+    outgoingChallenge.value = null
+    socket.value?.emit('challenge_cancel', { targetUserId })
   }
 
   const resetGame = () => {
@@ -561,6 +635,11 @@ export function useSocket() {
 
     // Clear saved game state from localStorage
     clearGameState()
+
+    // Clear challenge state
+    incomingChallenge.value = null
+    outgoingChallenge.value = null
+    challengeError.value = null
   }
 
   return {
@@ -596,6 +675,13 @@ export function useSocket() {
     joinLobby,
     leaveLobby,
     setLobbyIdle,
-    setLobbyAvailable
+    setLobbyAvailable,
+    incomingChallenge,
+    outgoingChallenge,
+    challengeError,
+    sendChallenge,
+    acceptChallenge,
+    declineChallenge,
+    cancelChallenge
   }
 }

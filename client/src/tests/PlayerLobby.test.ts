@@ -35,6 +35,8 @@ function mountLobby(overrides: Partial<{
   isConnected: boolean
   authenticatedUserId: string | null
   authenticatedUsername: string | null
+  outgoingChallenge: { targetUserId: string; targetName: string } | null
+  challengeError: string | null
 }> = {}) {
   return mount(PlayerLobby, {
     props: {
@@ -43,6 +45,8 @@ function mountLobby(overrides: Partial<{
       isConnected: true,
       authenticatedUserId: null,
       authenticatedUsername: null,
+      outgoingChallenge: null,
+      challengeError: null,
       ...overrides,
     },
   })
@@ -130,8 +134,6 @@ describe('PlayerLobby — sign-in banner', () => {
 
   it('emits showAuth when sign-in link is clicked', async () => {
     const wrapper = mountLobby({ authenticatedUserId: null })
-    const signInBtn = wrapper.find('button[onClick]')
-    // Find the sign-in button specifically (it's inside the banner)
     const buttons = wrapper.findAll('button')
     const signInButton = buttons.find(b => b.text().includes('Sign in'))
     await signInButton!.trigger('click')
@@ -262,15 +264,49 @@ describe('PlayerLobby — Back button', () => {
 // ── challenge button ──────────────────────────────────────────────────────────
 
 describe('PlayerLobby — Challenge button', () => {
-  it('shows a disabled Challenge button for available non-self players', () => {
+  it('shows an active Challenge button for available non-self players when authenticated', () => {
     const wrapper = mountLobby({
       lobbyPlayers: [ALICE],
       lobbyTotal: 1,
       authenticatedUserId: 'u-other',
     })
-    const btn = wrapper.find('button[disabled]')
-    expect(btn.exists()).toBe(true)
-    expect(btn.text()).toBe('Challenge')
+    const buttons = wrapper.findAll('button')
+    const btn = buttons.find(b => b.text() === 'Challenge')
+    expect(btn?.exists()).toBe(true)
+    expect(btn?.element.disabled).toBe(false)
+  })
+
+  it('emits challenge with the target userId when clicked', async () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE],
+      lobbyTotal: 1,
+      authenticatedUserId: 'u-other',
+    })
+    const buttons = wrapper.findAll('button')
+    const btn = buttons.find(b => b.text() === 'Challenge')
+    await btn!.trigger('click')
+    expect(wrapper.emitted('challenge')).toEqual([['u-alice']])
+  })
+
+  it('hides Challenge button when user is not authenticated', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE],
+      lobbyTotal: 1,
+      authenticatedUserId: null,
+    })
+    expect(wrapper.text()).not.toContain('Challenge')
+  })
+
+  it('hides Challenge button while outgoing challenge is pending', () => {
+    const wrapper = mountLobby({
+      lobbyPlayers: [ALICE],
+      lobbyTotal: 1,
+      authenticatedUserId: 'u-other',
+      outgoingChallenge: { targetUserId: 'u-alice', targetName: 'Alice' },
+    })
+    const buttons = wrapper.findAll('button')
+    const btn = buttons.find(b => b.text() === 'Challenge')
+    expect(btn).toBeUndefined()
   })
 
   it('does not show Challenge button for in_game players', () => {

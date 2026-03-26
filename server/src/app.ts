@@ -7,6 +7,7 @@ import { GameRoom } from './game/GameRoom.js';
 import { clearRoomColors } from './game/ColorSchemes.js';
 import { supabase, isSupabaseConfigured } from './lib/supabase.js';
 import { Lobby } from './game/Lobby.js';
+import { ChallengeManager } from './game/ChallengeManager.js';
 
 export const app = express();
 export const httpServer = createServer(app);
@@ -39,6 +40,17 @@ const socketToRoom = new Map<string, string>(); // socketId → roomCode
 // Lobby — IO injected as a dependency so Lobby.ts stays testable
 const lobby = new Lobby((socketId, players, total) => {
   io.to(socketId).emit('lobby_update', { players, total });
+});
+
+const CHALLENGE_TIMEOUT_SECS = 60;
+
+// Challenge manager — timeout callback notifies both parties and resets their status
+const challengeManager = new ChallengeManager((challenge) => {
+  lobby.setStatus(challenge.challengerUserId, 'available');
+  lobby.setStatus(challenge.targetUserId, 'available');
+  io.to(challenge.challengerSocketId).emit('challenge_timeout', { targetUserId: challenge.targetUserId, targetName: challenge.targetName });
+  io.to(challenge.targetSocketId).emit('challenge_timeout', { challengerUserId: challenge.challengerUserId, challengerName: challenge.challengerName });
+  console.log(`Challenge ${challenge.challengerName} → ${challenge.targetName} timed out`);
 });
 
 async function fetchPlayerRating(userId: string): Promise<{ winRate: number; totalGames: number }> {
@@ -177,6 +189,151 @@ io.on('connection', (socket) => {
   // Client reports activity after idle
   socket.on('set_available', () => {
     lobby.setStatusBySocket(socket.id, 'available');
+  });
+
+  // ── Challenge events ─────────────────────────────────────────────────────
+
+  socket.on('challenge_send', (data: { targetUserId: string }) => {
+    const challengerUserId = lobby.getUserIdBySocket(socket.id);
+    if (!challengerUserId) {
+      socket.emit('challenge_error', { message: 'Not in lobby' });
+      return;
+    }
+
+    const target = lobby.getPlayer(data.targetUserId);
+    if (!target || target.status !== 'available') {
+      socket.emit('challenge_error', { message: 'Player is not available' });
+      return;
+    }
+
+    const challenger = lobby.getPlayer(challengerUserId)!;
+
+    const sent = challengeManager.send({
+      challengerUserId,
+      challengerSocketId: socket.id,
+      challengerName: challenger.name,
+      targetUserId: data.targetUserId,
+      targetSocketId: target.socketId,
+      targetName: target.name,
+    });
+
+    if (!sent) {
+      socket.emit('challenge_error', { message: 'A challenge is already in progress' });
+      return;
+    }
+
+    lobby.setStatus(challengerUserId, 'pending');
+    lobby.setStatus(data.targetUserId, 'pending');
+
+    // Notify target
+    io.to(target.socketId).emit('challenge_received', {
+      challengerUserId,
+      challengerName: challenger.name,
+      challengerWinRate: challenger.winRate,
+      challengerTotalGames: challenger.totalGames,
+      timeoutSecs: CHALLENGE_TIMEOUT_SECS,
+    });
+
+    // Confirm to challenger
+    socket.emit('challenge_sent', {
+      targetUserId: data.targetUserId,
+      targetName: target.name,
+    });
+
+    console.log(`${challenger.name} challenged ${target.name}`);
+  });
+
+  socket.on('challenge_accept', (data: { challengerUserId: string }) => {
+    const targetUserId = lobby.getUserIdBySocket(socket.id);
+    if (!targetUserId) return;
+
+    const challenge = challengeManager.remove(data.challengerUserId, targetUserId);
+    if (!challenge) {
+      socket.emit('challenge_error', { message: 'Challenge not found or already expired' });
+      return;
+    }
+
+    // Create a room for both players
+    const roomCode = generateRoomCode();
+    const room = new GameRoom(roomCode);
+
+    room.addPlayer(challenge.challengerSocketId, challenge.challengerName, challenge.challengerUserId);
+    room.addPlayer(challenge.targetSocketId, challenge.targetName, challenge.targetUserId);
+    rooms.set(roomCode, room);
+    socketToRoom.set(challenge.challengerSocketId, roomCode);
+    socketToRoom.set(challenge.targetSocketId, roomCode);
+
+    lobby.setStatus(challenge.challengerUserId, 'in_game');
+    lobby.setStatus(targetUserId, 'in_game');
+
+    // Both sockets join the socket.io room
+    const challengerSocket = io.sockets.sockets.get(challenge.challengerSocketId);
+    challengerSocket?.join(roomCode);
+    socket.join(roomCode);
+
+    console.log(`Challenge accepted: ${challenge.challengerName} vs ${challenge.targetName} → room ${roomCode}`);
+
+    io.to(challenge.challengerSocketId).emit('room_created', {
+      roomCode,
+      players: room.getPlayers(),
+      board: room.getBoard(),
+      gameStatus: room.getStatus(),
+    });
+
+    socket.emit('room_joined', {
+      roomCode,
+      players: room.getPlayers(),
+      board: room.getBoard(),
+      gameStatus: room.getStatus(),
+    });
+
+    setTimeout(() => {
+      room.startGame();
+      io.to(roomCode).emit('game_start', {
+        board: room.getBoard(),
+        players: room.getPlayers(),
+        currentTurn: room.getCurrentPlayer()?.id,
+        scores: room.getScores(),
+        turnStartTime: room.getTurnStartTime(),
+      });
+      console.log(`Challenge game started in room ${roomCode}`);
+    }, 2000);
+  });
+
+  socket.on('challenge_decline', (data: { challengerUserId: string }) => {
+    const targetUserId = lobby.getUserIdBySocket(socket.id);
+    if (!targetUserId) return;
+
+    const challenge = challengeManager.remove(data.challengerUserId, targetUserId);
+    if (!challenge) return;
+
+    lobby.setStatus(challenge.challengerUserId, 'available');
+    lobby.setStatus(targetUserId, 'available');
+
+    io.to(challenge.challengerSocketId).emit('challenge_declined', {
+      targetUserId,
+      targetName: challenge.targetName,
+    });
+
+    console.log(`${challenge.targetName} declined ${challenge.challengerName}'s challenge`);
+  });
+
+  socket.on('challenge_cancel', (data: { targetUserId: string }) => {
+    const challengerUserId = lobby.getUserIdBySocket(socket.id);
+    if (!challengerUserId) return;
+
+    const challenge = challengeManager.remove(challengerUserId, data.targetUserId);
+    if (!challenge) return;
+
+    lobby.setStatus(challengerUserId, 'available');
+    lobby.setStatus(data.targetUserId, 'available');
+
+    io.to(challenge.targetSocketId).emit('challenge_cancelled', {
+      challengerUserId,
+      challengerName: challenge.challengerName,
+    });
+
+    console.log(`${challenge.challengerName} cancelled challenge to ${challenge.targetName}`);
   });
 
   // Create a new room
@@ -477,6 +634,29 @@ io.on('connection', (socket) => {
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
+
+    // Cancel any active challenges for this user
+    const lobbyUserId = lobby.getUserIdBySocket(socket.id);
+    if (lobbyUserId) {
+      const cancelledChallenges = challengeManager.removeAllForUser(lobbyUserId);
+      for (const ch of cancelledChallenges) {
+        if (ch.challengerUserId === lobbyUserId) {
+          // Challenger disconnected — notify target
+          lobby.setStatus(ch.targetUserId, 'available');
+          io.to(ch.targetSocketId).emit('challenge_cancelled', {
+            challengerUserId: ch.challengerUserId,
+            challengerName: ch.challengerName,
+          });
+        } else {
+          // Target disconnected — treat as decline
+          lobby.setStatus(ch.challengerUserId, 'available');
+          io.to(ch.challengerSocketId).emit('challenge_declined', {
+            targetUserId: ch.targetUserId,
+            targetName: ch.targetName,
+          });
+        }
+      }
+    }
 
     // Remove from lobby if present
     const removedFromLobby = lobby.removeBySocket(socket.id);

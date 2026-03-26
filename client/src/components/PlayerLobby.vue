@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import type { LobbyPlayerPublic } from '../composables/useSocket'
+import type { LobbyPlayerPublic, OutgoingChallenge } from '../composables/useSocket'
 
 const props = defineProps<{
   lobbyPlayers: LobbyPlayerPublic[]
@@ -8,6 +8,8 @@ const props = defineProps<{
   isConnected: boolean
   authenticatedUserId: string | null
   authenticatedUsername: string | null
+  outgoingChallenge: OutgoingChallenge | null
+  challengeError: string | null
 }>()
 
 const emit = defineEmits<{
@@ -17,6 +19,8 @@ const emit = defineEmits<{
   showAuth: []
   setIdle: []
   setAvailable: []
+  challenge: [targetUserId: string]
+  cancelChallenge: [targetUserId: string]
 }>()
 
 const playerName = ref(props.authenticatedUsername || '')
@@ -154,12 +158,11 @@ const statusText: Record<string, string> = {
           </div>
         </div>
 
-        <!-- Challenge button (Phase 3 placeholder) -->
+        <!-- Challenge button -->
         <button
-          v-if="player.status === 'available' && player.userId !== authenticatedUserId"
-          disabled
-          title="Coming soon"
-          class="text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-400 cursor-not-allowed flex-shrink-0"
+          v-if="player.status === 'available' && player.userId !== authenticatedUserId && authenticatedUserId && !outgoingChallenge"
+          @click="$emit('challenge', player.userId)"
+          class="text-xs px-3 py-1 rounded-full border border-blue-400 text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
         >
           Challenge
         </button>
@@ -185,8 +188,29 @@ const statusText: Record<string, string> = {
       />
     </div>
 
+    <!-- Challenge error -->
+    <div v-if="challengeError" class="p-3 bg-red-50 border-l-4 border-red-400 rounded-lg">
+      <p class="text-sm text-red-700">{{ challengeError }}</p>
+    </div>
+
+    <!-- Outgoing challenge waiting state -->
+    <div v-if="outgoingChallenge" class="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-3">
+      <div class="flex items-center gap-3">
+        <div class="animate-pulse w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
+        <p class="text-sm font-semibold text-blue-800">
+          Waiting for <span class="font-bold">{{ outgoingChallenge.targetName }}</span> to respond…
+        </p>
+      </div>
+      <button
+        @click="$emit('cancelChallenge', outgoingChallenge.targetUserId)"
+        class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+      >
+        Cancel Challenge
+      </button>
+    </div>
+
     <!-- Action buttons -->
-    <div v-if="!showJoinForm" class="space-y-3">
+    <div v-if="!showJoinForm && !outgoingChallenge" class="space-y-3">
       <button
         v-if="isConnected"
         @click="handleCreateRoom"
@@ -215,7 +239,7 @@ const statusText: Record<string, string> = {
     </div>
 
     <!-- Join with code form -->
-    <div v-if="showJoinForm" class="space-y-3">
+    <div v-if="showJoinForm && !outgoingChallenge" class="space-y-3">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Room Code</label>
         <input
