@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { io as ioClient, type Socket } from 'socket.io-client';
 import { httpServer } from '../app.js';
+import type { Player } from '../../../shared/types.js';
 
 // ─── server lifecycle ────────────────────────────────────────────────────────
 
@@ -48,6 +49,32 @@ function disconnectAll(...sockets: Socket[]) {
   for (const s of sockets) {
     if (s.connected) s.disconnect();
   }
+}
+
+/** Create two connected clients, join a game room together, and wait for game_start. */
+async function startGame(): Promise<{
+  alice: Socket;
+  bob: Socket;
+  roomCode: string;
+  alicePlayerId: string;
+}> {
+  const alice = connect();
+  const bob = connect();
+  await Promise.all([waitFor(alice, 'connect'), waitFor(bob, 'connect')]);
+
+  // Alice creates the room
+  const roomCreated = waitFor<{ roomCode: string; players: Player[] }>(alice, 'room_created');
+  alice.emit('create_room', { playerName: 'Alice', userId: 'u-alice' });
+  const { roomCode, players: aPlayers } = await roomCreated;
+  const alicePlayerId = aPlayers.find(p => p.name === 'Alice')!.id;
+
+  // Bob joins — this triggers game_start after 2s
+  const gameStartAlice = waitFor(alice, 'game_start');
+  const gameStartBob = waitFor(bob, 'game_start');
+  bob.emit('join_room', { roomCode, playerName: 'Bob', userId: 'u-bob' });
+  await Promise.all([gameStartAlice, gameStartBob]);
+
+  return { alice, bob, roomCode, alicePlayerId };
 }
 
 // ─── tests ──────────────────────────────────────────────────────────────────
@@ -175,5 +202,56 @@ describe('Lobby socket events', () => {
     expect(update2.total).toBe(2);
 
     disconnectAll(client2);
+  });
+});
+
+// ── game disconnection / reconnection ────────────────────────────────────────
+
+describe('Game — disconnection handling', () => {
+  it('game_paused is emitted to the remaining player when their opponent disconnects', async () => {
+    const { alice, bob } = await startGame();
+
+    try {
+      const pausedPromise = waitFor<{ disconnectedPlayer: Player; reconnectDeadlineSecs: number }>(
+        bob, 'game_paused'
+      );
+
+      alice.disconnect();
+
+      const paused = await pausedPromise;
+      expect(paused.disconnectedPlayer.name).toBe('Alice');
+      expect(paused.reconnectDeadlineSecs).toBeGreaterThan(0);
+    } finally {
+      disconnectAll(bob);
+    }
+  });
+
+  it('game_resumed is emitted to the waiting player when the opponent reconnects', async () => {
+    const { alice, bob, roomCode, alicePlayerId } = await startGame();
+
+    try {
+      // Wait for pause
+      const pausedPromise = waitFor(bob, 'game_paused');
+      alice.disconnect();
+      await pausedPromise;
+
+      // Alice reconnects with a new socket
+      const aliceNew = connect();
+      await waitFor(aliceNew, 'connect');
+
+      const resumedPromise = waitFor<{ player: Player; players: Player[]; turnTimeRemaining: number }>(
+        bob, 'game_resumed'
+      );
+
+      aliceNew.emit('request_game_state', { roomCode, playerId: alicePlayerId });
+
+      const resumed = await resumedPromise;
+      expect(resumed.player.name).toBe('Alice');
+      expect(resumed.turnTimeRemaining).toBeGreaterThan(0);
+
+      disconnectAll(aliceNew);
+    } finally {
+      disconnectAll(bob);
+    }
   });
 });

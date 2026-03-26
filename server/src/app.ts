@@ -32,10 +32,12 @@ export const io = new Server(httpServer, {
 });
 
 const TURN_TIME_LIMIT = 20; // seconds per turn — must match client
+const RECONNECT_TIMEOUT_SECS = 90; // seconds before disconnected player forfeits
 
 // Room management
 const rooms = new Map<string, GameRoom>();
 const socketToRoom = new Map<string, string>(); // socketId → roomCode
+const forfeitTimers = new Map<string, ReturnType<typeof setTimeout>>(); // roomCode → timer
 
 // Lobby — IO injected as a dependency so Lobby.ts stays testable
 const lobby = new Lobby((socketId, players, total) => {
@@ -464,7 +466,7 @@ io.on('connection', (socket) => {
     if (!roomCode) return;
 
     const room = rooms.get(roomCode);
-    if (!room) return;
+    if (!room || room.getIsPaused()) return;
 
     const currentPlayer = room.getCurrentPlayer();
     if (!currentPlayer || currentPlayer.socketId !== socket.id) {
@@ -553,10 +555,26 @@ io.on('connection', (socket) => {
     console.log(`[${roomCode}] Game state sent to ${socket.id}${player ? ` (${player.name})` : ''}`);
 
     if (wasReconnection && player) {
-      socket.to(roomCode).emit('player_reconnected', {
+      // Cancel any pending forfeit countdown
+      const forfeitTimer = forfeitTimers.get(roomCode);
+      if (forfeitTimer) {
+        clearTimeout(forfeitTimer);
+        forfeitTimers.delete(roomCode);
+        console.log(`[${roomCode}] Forfeit timer cancelled — ${player.name} reconnected`);
+      }
+
+      // Resume the game (resets turn start time)
+      if (room.getIsPaused()) {
+        room.resumeGame();
+      }
+
+      socket.to(roomCode).emit('game_resumed', {
         player: player,
-        players: room.getPlayers()
+        players: room.getPlayers(),
+        turnTimeRemaining: TURN_TIME_LIMIT,
       });
+
+      console.log(`[${roomCode}] ${player.name} reconnected — game resumed`);
     }
   });
 
@@ -692,12 +710,39 @@ io.on('connection', (socket) => {
           socketToRoom.delete(socket.id);
         } else {
           if (player && player.socketId !== 'ai') {
-            console.log(`${player.name} disconnected from room ${roomCode} (keeping for reconnection)`);
+            console.log(`${player.name} disconnected from room ${roomCode} — starting ${RECONNECT_TIMEOUT_SECS}s forfeit timer`);
 
-            socket.to(roomCode).emit('player_disconnected', {
-              player: player,
-              players: room.getPlayers()
+            room.pauseGame();
+
+            socket.to(roomCode).emit('game_paused', {
+              disconnectedPlayer: player,
+              reconnectDeadlineSecs: RECONNECT_TIMEOUT_SECS,
             });
+
+            const forfeitTimer = setTimeout(async () => {
+              forfeitTimers.delete(roomCode);
+              const currentRoom = rooms.get(roomCode);
+              if (!currentRoom || currentRoom.getStatus() === 'finished') return;
+
+              currentRoom.forfeitPlayer(player.id);
+              const winner = currentRoom.getWinner();
+
+              await currentRoom.getGameTracker().trackGameResult(winner, currentRoom.getScores(), false);
+
+              io.to(roomCode).emit('game_end', {
+                winner,
+                scores: currentRoom.getScores(),
+                players: currentRoom.getPlayers(),
+                forfeit: true,
+                forfeitedPlayerId: player.id,
+              });
+
+              rooms.delete(roomCode);
+              clearRoomColors(roomCode);
+              console.log(`[${roomCode}] ${player.name} forfeited — game ended`);
+            }, RECONNECT_TIMEOUT_SECS * 1000);
+
+            forfeitTimers.set(roomCode, forfeitTimer);
           }
         }
       }

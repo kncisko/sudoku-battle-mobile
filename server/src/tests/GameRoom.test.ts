@@ -532,3 +532,81 @@ describe('GameRoom — AI game', () => {
     expect(room.getAIMove()).toBeNull();
   });
 });
+
+// ── pause / resume / forfeit ──────────────────────────────────────────────────
+
+describe('GameRoom — pause / resume / forfeit', () => {
+  it('getIsPaused returns false initially', () => {
+    const room = makeStartedRoom();
+    expect(room.getIsPaused()).toBe(false);
+  });
+
+  it('pauseGame sets isPaused to true', () => {
+    const room = makeStartedRoom();
+    room.pauseGame();
+    expect(room.getIsPaused()).toBe(true);
+  });
+
+  it('resumeGame clears isPaused', () => {
+    const room = makeStartedRoom();
+    room.pauseGame();
+    room.resumeGame();
+    expect(room.getIsPaused()).toBe(false);
+  });
+
+  it('resumeGame resets turnStartTime to now', () => {
+    const room = makeStartedRoom();
+    const before = Date.now();
+    room.pauseGame();
+    room.resumeGame();
+    expect(room.getTurnStartTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it('getStatus remains playing while paused', () => {
+    const room = makeStartedRoom();
+    room.pauseGame();
+    expect(room.getStatus()).toBe('playing');
+  });
+
+  it('getForfeitedPlayerId returns null before any forfeit', () => {
+    const room = makeStartedRoom();
+    expect(room.getForfeitedPlayerId()).toBeNull();
+  });
+
+  it('forfeitPlayer sets status to finished', () => {
+    const room = makeStartedRoom();
+    const loser = room.getPlayers()[0];
+    room.forfeitPlayer(loser.id);
+    expect(room.getStatus()).toBe('finished');
+  });
+
+  it('forfeitPlayer stores the forfeited player id', () => {
+    const room = makeStartedRoom();
+    const loser = room.getPlayers()[0];
+    room.forfeitPlayer(loser.id);
+    expect(room.getForfeitedPlayerId()).toBe(loser.id);
+  });
+
+  it('forfeitPlayer clears isPaused', () => {
+    const room = makeStartedRoom();
+    room.pauseGame();
+    room.forfeitPlayer(room.getPlayers()[0].id);
+    expect(room.getIsPaused()).toBe(false);
+  });
+
+  it('getWinner returns the non-forfeited player after forfeit', () => {
+    const room = makeStartedRoom();
+    const [p1, p2] = room.getPlayers();
+    room.forfeitPlayer(p1.id);
+    expect(room.getWinner()?.id).toBe(p2.id);
+  });
+
+  it('getWinner ignores scores when a forfeit occurred', () => {
+    const room = makeStartedRoom();
+    const [p1, p2] = room.getPlayers();
+    // Give the forfeiting player a higher score — they should still lose
+    room.getState().scores[p1.id] = 99;
+    room.forfeitPlayer(p1.id);
+    expect(room.getWinner()?.id).toBe(p2.id);
+  });
+});

@@ -11,6 +11,8 @@ export class GameRoom {
   private earlyWinDetected: boolean = false;
   private gameTracker: GameTracker;
   private turnStartTime: number = 0; // Timestamp when current turn started
+  private isPaused: boolean = false;
+  private forfeitedPlayerId: string | null = null;
 
   constructor(roomId: string, withAI: boolean = false, aiDifficulty: AIDifficulty = 'normal') {
     this.isAIGame = withAI;
@@ -155,6 +157,34 @@ export class GameRoom {
   // Find player by ID (useful for reconnection)
   getPlayerById(playerId: string): Player | null {
     return this.room.players.find(p => p.id === playerId) || null;
+  }
+
+  // Pause the game when a player disconnects mid-game
+  pauseGame(): void {
+    this.isPaused = true;
+  }
+
+  // Resume the game when the disconnected player reconnects
+  resumeGame(): void {
+    this.isPaused = false;
+    this.turnStartTime = Date.now();
+  }
+
+  // Check if the game is currently paused
+  getIsPaused(): boolean {
+    return this.isPaused;
+  }
+
+  // Award the win to the other player (disconnection forfeit)
+  forfeitPlayer(playerId: string): void {
+    this.forfeitedPlayerId = playerId;
+    this.isPaused = false;
+    this.room.gameStatus = 'finished';
+  }
+
+  // Return the ID of the player who forfeited, if any
+  getForfeitedPlayerId(): string | null {
+    return this.forfeitedPlayerId;
   }
 
   // Start the game (when both players are ready)
@@ -379,6 +409,11 @@ export class GameRoom {
   getWinner(): Player | null {
     if (this.room.gameStatus !== 'finished') {
       return null;
+    }
+
+    // Forfeit: other player wins regardless of score
+    if (this.forfeitedPlayerId) {
+      return this.room.players.find(p => p.id !== this.forfeitedPlayerId) || null;
     }
 
     const [player1, player2] = this.room.players;

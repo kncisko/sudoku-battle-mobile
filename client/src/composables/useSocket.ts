@@ -71,6 +71,11 @@ export function useSocket() {
   const outgoingChallenge = ref<OutgoingChallenge | null>(null)
   const challengeError = ref<string | null>(null)
 
+  // Disconnection state (opponent dropped mid-game)
+  const opponentDisconnected = ref(false)
+  // Unix timestamp (ms) after which the opponent is forfeited; null = not waiting
+  const reconnectDeadline = ref<number | null>(null)
+
   // LocalStorage key for game state backup
   const GAME_STATE_KEY = 'sudoku_battle_game_state'
 
@@ -342,6 +347,23 @@ export function useSocket() {
       players.value = data.players
     })
 
+    // Opponent disconnected mid-game — pause timer, show overlay
+    socket.value.on('game_paused', (data: { disconnectedPlayer: Player; reconnectDeadlineSecs: number }) => {
+      console.log('Game paused — opponent disconnected:', data.disconnectedPlayer.name)
+      opponentDisconnected.value = true
+      reconnectDeadline.value = Date.now() + data.reconnectDeadlineSecs * 1000
+      clearTurnTimer()
+    })
+
+    // Opponent reconnected — hide overlay, resume timer
+    socket.value.on('game_resumed', (data: { player: Player; players: Player[]; turnTimeRemaining: number }) => {
+      console.log('Game resumed — opponent reconnected:', data.player.name)
+      opponentDisconnected.value = false
+      reconnectDeadline.value = null
+      players.value = data.players
+      startTurnTimer(data.turnTimeRemaining)
+    })
+
     // Game starting
     socket.value.on('game_start', (data: {
       board: SudokuBoard
@@ -451,12 +473,16 @@ export function useSocket() {
       scores: Record<string, number>
       players: Player[]
       earlyWin?: boolean
+      forfeit?: boolean
+      forfeitedPlayerId?: string
     }) => {
       console.log('Game ended:', data)
       gameStatus.value = 'finished'
       winner.value = data.winner
       scores.value = data.scores
       earlyWin.value = data.earlyWin || false
+      opponentDisconnected.value = false
+      reconnectDeadline.value = null
 
       // Clear timer when game ends
       clearTurnTimer()
@@ -640,6 +666,10 @@ export function useSocket() {
     incomingChallenge.value = null
     outgoingChallenge.value = null
     challengeError.value = null
+
+    // Clear disconnection state
+    opponentDisconnected.value = false
+    reconnectDeadline.value = null
   }
 
   return {
@@ -682,6 +712,8 @@ export function useSocket() {
     sendChallenge,
     acceptChallenge,
     declineChallenge,
-    cancelChallenge
+    cancelChallenge,
+    opponentDisconnected,
+    reconnectDeadline,
   }
 }
