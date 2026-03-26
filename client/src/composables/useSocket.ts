@@ -11,6 +11,15 @@ console.log('VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL)
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting' | 'error'
 export type MoveStatus = 'idle' | 'submitting' | 'acknowledged'
+export type LobbyStatus = 'available' | 'idle' | 'pending' | 'in_game'
+
+export interface LobbyPlayerPublic {
+  userId: string
+  name: string
+  status: LobbyStatus
+  winRate: number
+  totalGames: number
+}
 
 export function useSocket() {
   const socket = ref<Socket | null>(null)
@@ -36,6 +45,13 @@ export function useSocket() {
   const lastMoveLatency = ref<number>(0)
   const isSlowConnection = ref(false)
   const gameStartTime = ref<number | null>(null)
+
+  // Lobby state
+  const lobbyPlayers = ref<LobbyPlayerPublic[]>([])
+  const lobbyTotal = ref(0)
+  // Track lobby membership so it can be re-joined on reconnect
+  const lobbyUserId = ref<string | null>(null)
+  const lobbyUserName = ref<string | null>(null)
 
   // LocalStorage key for game state backup
   const GAME_STATE_KEY = 'sudoku_battle_game_state'
@@ -165,6 +181,12 @@ export function useSocket() {
           roomCode: roomCode.value,
           playerId: myPlayerId.value
         })
+      }
+
+      // Re-join lobby if we were in it before the disconnect
+      if (lobbyUserId.value && lobbyUserName.value) {
+        console.log('🏠 Reconnected - rejoining lobby')
+        socket.value?.emit('join_lobby', { userId: lobbyUserId.value, name: lobbyUserName.value })
       }
     })
 
@@ -435,6 +457,12 @@ export function useSocket() {
       console.error('Connection error:', err)
       error.value = 'Failed to connect to server'
     })
+
+    // Lobby update
+    socket.value.on('lobby_update', (data: { players: LobbyPlayerPublic[]; total: number }) => {
+      lobbyPlayers.value = data.players
+      lobbyTotal.value = data.total
+    })
   })
 
   onUnmounted(() => {
@@ -483,6 +511,29 @@ export function useSocket() {
         }
       }, 10000)
     }
+  }
+
+  // Lobby actions
+  const joinLobby = (userId: string, name: string) => {
+    lobbyUserId.value = userId
+    lobbyUserName.value = name
+    socket.value?.emit('join_lobby', { userId, name })
+  }
+
+  const leaveLobby = () => {
+    lobbyUserId.value = null
+    lobbyUserName.value = null
+    socket.value?.emit('leave_lobby')
+    lobbyPlayers.value = []
+    lobbyTotal.value = 0
+  }
+
+  const setLobbyIdle = () => {
+    socket.value?.emit('set_idle')
+  }
+
+  const setLobbyAvailable = () => {
+    socket.value?.emit('set_available')
   }
 
   const resetGame = () => {
@@ -539,6 +590,12 @@ export function useSocket() {
     createAIGame,
     joinRoom,
     makeMove,
-    resetGame
+    resetGame,
+    lobbyPlayers,
+    lobbyTotal,
+    joinLobby,
+    leaveLobby,
+    setLobbyIdle,
+    setLobbyAvailable
   }
 }

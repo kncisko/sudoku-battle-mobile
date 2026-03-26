@@ -8,6 +8,7 @@ import { useStats } from './composables/useStats'
 import { initializeTickSound } from './composables/useTickSound'
 import SudokuBoard from './components/SudokuBoard.vue'
 import GameLobby from './components/GameLobby.vue'
+import PlayerLobby from './components/PlayerLobby.vue'
 import GameModeSelector from './components/GameModeSelector.vue'
 import ClassicDifficultySelector from './components/ClassicDifficultySelector.vue'
 import HelpModal from './components/HelpModal.vue'
@@ -25,6 +26,7 @@ const showSplash = ref(true)
 
 // Game mode selection state
 const gameModeSelected = ref(false)
+const showPlayerLobby = ref(false)
 const showClassicDifficulty = ref(false)
 
 // Help modal state
@@ -262,6 +264,8 @@ const handleEndGame = () => {
     }
     // Reset online game state
     onlineGame.resetGame()
+    // Return to player lobby after an online game
+    showPlayerLobby.value = true
   } else {
     // Reset offline game
     offlineGame.resetGame()
@@ -289,6 +293,33 @@ const handleCreateAIGame = (playerName: string, difficulty: AIDifficulty) => {
 const handleJoinRoom = (roomCode: string, playerName: string) => {
   onlineGame.joinRoom(roomCode, playerName, auth.user.value?.id)
 }
+
+// PlayerLobby handlers
+const handlePlayerLobbyCreateRoom = (playerName: string) => {
+  showPlayerLobby.value = false
+  handleCreateRoom(playerName)
+}
+
+const handlePlayerLobbyJoinRoom = (roomCode: string, playerName: string) => {
+  showPlayerLobby.value = false
+  handleJoinRoom(roomCode, playerName)
+}
+
+const handlePlayerLobbyBack = () => {
+  onlineGame.leaveLobby()
+  showPlayerLobby.value = false
+  gameModeSelected.value = false
+}
+
+// Join/leave lobby when PlayerLobby screen is shown/hidden
+watch(showPlayerLobby, (showing) => {
+  if (showing && auth.user.value) {
+    const name = auth.profile.value?.username || auth.user.value.email || 'Player'
+    onlineGame.joinLobby(auth.user.value.id, name)
+  } else if (!showing) {
+    onlineGame.leaveLobby()
+  }
+})
 
 const handleMakeMove = (row: number, col: number, value: number | null) => {
   // Classic mode uses null to clear cells, but online/offline modes don't support clearing
@@ -351,10 +382,9 @@ const handleUpdateUsername = async (username: string) => {
 // Game mode selection handler
 const handleGameModeSelect = (mode: 'battle' | 'classic') => {
   if (mode === 'battle') {
-    // Set game mode to online (default for Battle mode)
     gameMode.value = 'online'
-    // Navigate to Sudoku Battle (existing flow)
     gameModeSelected.value = true
+    showPlayerLobby.value = true // show player lobby first
   } else if (mode === 'classic') {
     // Show difficulty selection for Classic Sudoku
     showClassicDifficulty.value = true
@@ -400,6 +430,8 @@ const handleLeaveGame = async () => {
   gameMode.value = 'online'
   // Return to mode selection
   gameModeSelected.value = false
+  showPlayerLobby.value = false
+  onlineGame.leaveLobby()
 
   // Switch back to splash music
   if (!isMuted.value) {
@@ -978,9 +1010,25 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           </button>
         </div>
 
-        <!-- Game Lobby (before game starts) - only for Battle mode -->
+        <!-- Player Lobby (online player list) - Battle mode, before entering a room -->
+        <PlayerLobby
+          v-if="showPlayerLobby && gameMode !== 'classic' && !isPlaying && !isFinished"
+          :lobby-players="onlineGame.lobbyPlayers.value"
+          :lobby-total="onlineGame.lobbyTotal.value"
+          :is-connected="isConnected"
+          :authenticated-user-id="auth.user.value?.id || null"
+          :authenticated-username="auth.profile.value?.username || null"
+          @create-room="handlePlayerLobbyCreateRoom"
+          @join-room="handlePlayerLobbyJoinRoom"
+          @back="handlePlayerLobbyBack"
+          @show-auth="showAuthModal = true"
+          @set-idle="onlineGame.setLobbyIdle()"
+          @set-available="onlineGame.setLobbyAvailable()"
+        />
+
+        <!-- Game Lobby (before game starts) - only for Battle mode, not when in Player Lobby -->
         <GameLobby
-          v-if="gameMode !== 'classic' && !isPlaying && !isFinished"
+          v-if="!showPlayerLobby && gameMode !== 'classic' && !isPlaying && !isFinished"
           :room-code="onlineGame.roomCode.value"
           :players="players"
           :is-waiting="isWaiting"
