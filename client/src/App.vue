@@ -194,6 +194,10 @@ const toggleMute = async () => {
 }
 
 onUnmounted(async () => {
+  if (reconnectCountdownTimer !== null) {
+    clearInterval(reconnectCountdownTimer)
+    reconnectCountdownTimer = null
+  }
   if (isIOS && isCapacitor) {
     // iOS - Clean up NativeAudio
     try {
@@ -242,6 +246,26 @@ const isSlowConnection = computed(() => onlineGame.isSlowConnection.value)
 const isWaiting = computed(() => gameStatus.value === 'waiting' && (onlineGame.roomCode.value !== null || gameMode.value === 'offline'))
 const isPlaying = computed(() => gameStatus.value === 'playing')
 const isFinished = computed(() => gameStatus.value === 'finished')
+
+// Opponent disconnection countdown
+const reconnectSecondsLeft = ref(0)
+let reconnectCountdownTimer: number | null = null
+
+watch(() => onlineGame.opponentDisconnected.value, (disconnected) => {
+  if (disconnected) {
+    const update = () => {
+      const deadline = onlineGame.reconnectDeadline.value
+      reconnectSecondsLeft.value = deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0
+    }
+    update()
+    reconnectCountdownTimer = window.setInterval(update, 500)
+  } else {
+    if (reconnectCountdownTimer !== null) {
+      clearInterval(reconnectCountdownTimer)
+      reconnectCountdownTimer = null
+    }
+  }
+})
 
 // Determine if it's the current user's turn
 const isMyTurn = computed(() => {
@@ -1151,11 +1175,26 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
             </div>
           </div>
 
+          <!-- Opponent Disconnected Overlay -->
+          <div
+            v-if="gameMode === 'online' && isPlaying && onlineGame.opponentDisconnected.value"
+            class="relative z-10 mb-2 p-5 bg-gray-900/80 rounded-xl text-center backdrop-blur-sm border border-gray-600"
+          >
+            <div class="text-3xl mb-2">📡</div>
+            <p class="font-bold text-white mb-1">Opponent Disconnected</p>
+            <p class="text-sm text-gray-300 mb-3">Waiting for them to reconnect…</p>
+            <p
+              class="text-4xl font-mono font-bold transition-colors"
+              :class="reconnectSecondsLeft <= 20 ? 'text-red-400 animate-pulse' : 'text-blue-300'"
+            >{{ reconnectSecondsLeft }}s</p>
+            <p class="text-xs text-gray-400 mt-1">Game forfeited if they don't return</p>
+          </div>
+
           <!-- Sudoku Board -->
           <SudokuBoard
             v-if="!isFinished"
             :board="board"
-            :is-my-turn="isMyTurn"
+            :is-my-turn="isMyTurn && !onlineGame.opponentDisconnected.value"
             :revealed-cell="revealedCell"
             :last-locked-cell="lastLockedCell"
             :players="players"
@@ -1170,8 +1209,15 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
                 {{ winner ? (winner.id === myPlayerId ? '🎉 You Win!' : '😔 You Lose') : "🤝 It's a Tie!" }}
               </h2>
 
+              <!-- Forfeit Message -->
+              <div v-if="onlineGame.forfeit.value" class="mb-3 p-3 bg-orange-100 border-l-4 border-orange-500 rounded">
+                <p class="text-sm text-orange-800 font-semibold text-center">
+                  {{ onlineGame.forfeitedPlayerId.value === myPlayerId ? 'You were disconnected too long and forfeited.' : 'Opponent forfeited due to disconnection.' }}
+                </p>
+              </div>
+
               <!-- Early Win Message -->
-              <div v-if="earlyWin" class="mb-3 p-3 bg-purple-100 border-l-4 border-purple-500 rounded">
+              <div v-if="earlyWin && !onlineGame.forfeit.value" class="mb-3 p-3 bg-purple-100 border-l-4 border-purple-500 rounded">
                 <p class="text-sm text-purple-800 font-semibold text-center">
                   ⚡ Dominant Victory! The winner had an insurmountable lead.
                 </p>
@@ -1193,7 +1239,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
                   @click="handleEndGame"
                   class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
                 >
-                  End Game
+                  {{ gameMode === 'online' ? 'Return to Lobby' : 'End Game' }}
                 </button>
               </div>
             </div>

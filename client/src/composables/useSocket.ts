@@ -75,6 +75,9 @@ export function useSocket() {
   const opponentDisconnected = ref(false)
   // Unix timestamp (ms) after which the opponent is forfeited; null = not waiting
   const reconnectDeadline = ref<number | null>(null)
+  // Set when game ended because a player didn't reconnect in time
+  const forfeit = ref(false)
+  const forfeitedPlayerId = ref<string | null>(null)
 
   // LocalStorage key for game state backup
   const GAME_STATE_KEY = 'sudoku_battle_game_state'
@@ -481,6 +484,8 @@ export function useSocket() {
       winner.value = data.winner
       scores.value = data.scores
       earlyWin.value = data.earlyWin || false
+      forfeit.value = data.forfeit || false
+      forfeitedPlayerId.value = data.forfeitedPlayerId || null
       opponentDisconnected.value = false
       reconnectDeadline.value = null
 
@@ -670,6 +675,8 @@ export function useSocket() {
     // Clear disconnection state
     opponentDisconnected.value = false
     reconnectDeadline.value = null
+    forfeit.value = false
+    forfeitedPlayerId.value = null
   }
 
   return {
@@ -715,5 +722,7 @@ export function useSocket() {
     cancelChallenge,
     opponentDisconnected,
     reconnectDeadline,
+    forfeit,
+    forfeitedPlayerId,
   }
 }
