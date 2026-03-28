@@ -893,8 +893,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   </div>
 
   <!-- Main Game (only show when mode is selected) -->
-  <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4 overflow-y-hidden">
-    <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full relative game-panel-container">
+  <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center px-[5vw] py-4 overflow-y-hidden">
+    <div class="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full relative game-panel-container">
       <!-- Connection Status - top left during gameplay only (Battle mode only) -->
       <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[42px] left-[47px] flex items-center gap-2">
         <span class="relative flex h-2 w-2">
@@ -1323,26 +1323,7 @@ body {
 
 /* Responsive vertical centering for game panel */
 .game-panel-container {
-  margin-top: -2rem; /* Default for larger screens */
-}
-
-/* Adjust centering based on viewport height */
-@media (max-height: 700px) {
-  .game-panel-container {
-    margin-top: -1rem;
-  }
-}
-
-@media (max-height: 600px) {
-  .game-panel-container {
-    margin-top: -0.5rem;
-  }
-}
-
-@media (min-height: 900px) {
-  .game-panel-container {
-    margin-top: -3rem;
-  }
+  margin-top: 0;
 }
 
 /* Connection status - mobile: hide desktop panel and show compact centered version during game */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { LobbyPlayerPublic, OutgoingChallenge } from '../composables/useSocket'
 
 const props = defineProps<{
@@ -28,10 +28,18 @@ const playerName = ref(props.authenticatedUsername || '')
 const joinCode = ref('')
 const showJoinForm = ref(false)
 const showAIDifficulty = ref(false)
+const showLobby = ref(false)
+const lobbyFilter = ref('')
 
 // Sync player name when auth state changes
 watch(() => props.authenticatedUsername, (name) => {
   if (name && !playerName.value) playerName.value = name
+})
+
+const filteredPlayers = computed(() => {
+  const q = lobbyFilter.value.trim().toLowerCase()
+  if (!q) return props.lobbyPlayers
+  return props.lobbyPlayers.filter(p => p.name.toLowerCase().includes(q))
 })
 
 // ── Idle detection ──────────────────────────────────────────────────────────
@@ -69,9 +77,7 @@ const resolvedName = () => {
   return trimmed || `Player${Math.floor(Math.random() * 1000)}`
 }
 
-const handleCreateRoom = () => {
-  emit('createRoom', resolvedName())
-}
+const handleCreateRoom = () => emit('createRoom', resolvedName())
 
 const handleJoinRoom = () => {
   const code = joinCode.value.trim().toUpperCase()
@@ -103,39 +109,40 @@ const statusText: Record<string, string> = {
 </script>
 
 <template>
-  <div class="w-full space-y-4">
-    <h2 class="text-xl font-bold text-gray-800 text-center">Online Players</h2>
-
-    <!-- Sign-in banner (unauthenticated) -->
-    <div
-      v-if="!authenticatedUserId && isConnected"
-      class="p-3 bg-blue-50 border-l-4 border-blue-400 rounded-lg"
-    >
-      <p class="text-sm text-blue-800">
-        <button @click="$emit('showAuth')" class="font-semibold underline">Sign in</button>
-        to appear in the lobby and challenge players.
-      </p>
+  <!-- ── LOBBY VIEW ─────────────────────────────────────────────────────── -->
+  <div v-if="showLobby" class="w-full flex flex-col gap-3" style="height: 55vh;">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold text-gray-800">Online Players</h2>
+      <span v-if="lobbyTotal > 0" class="text-xs text-gray-400">{{ lobbyTotal }} online</span>
     </div>
 
-    <!-- Not connected -->
-    <div v-if="!isConnected" class="p-3 bg-orange-50 border-l-4 border-orange-500 rounded-lg">
-      <p class="text-sm text-orange-800 font-semibold">No connection — lobby unavailable</p>
-    </div>
+    <!-- Filter -->
+    <input
+      v-model="lobbyFilter"
+      type="text"
+      placeholder="Search players..."
+      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+    />
 
-    <!-- Player list -->
-    <div
-      v-if="isConnected"
-      class="rounded-lg border border-gray-200 overflow-hidden"
-      style="max-height: 260px; overflow-y: auto;"
-    >
+    <!-- Scrollable player list -->
+    <div class="rounded-lg border border-gray-200 overflow-y-auto flex-1">
+      <!-- Not connected -->
+      <div v-if="!isConnected" class="p-4 text-center text-orange-600 text-sm font-semibold">
+        No connection — lobby unavailable
+      </div>
+
       <!-- Empty state -->
-      <div v-if="lobbyPlayers.length === 0" class="p-6 text-center text-gray-400 text-sm">
-        No players online right now
+      <div v-else-if="filteredPlayers.length === 0" class="p-6 text-center text-gray-400 text-sm">
+        {{ lobbyFilter ? 'No players match your search' : 'No players online right now' }}
       </div>
 
       <!-- Player rows -->
       <div
-        v-for="player in lobbyPlayers"
+        v-for="player in filteredPlayers"
         :key="player.userId"
         class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0"
         :class="player.userId === authenticatedUserId ? 'bg-blue-50' : 'bg-white'"
@@ -171,32 +178,16 @@ const statusText: Record<string, string> = {
       </div>
     </div>
 
-    <!-- Online count -->
-    <p v-if="isConnected && lobbyTotal > 0" class="text-xs text-gray-400 text-center -mt-1">
-      {{ lobbyTotal }} player{{ lobbyTotal === 1 ? '' : 's' }} online
-    </p>
-
-    <!-- Your name (if not authenticated) -->
-    <div v-if="!authenticatedUserId">
-      <label class="block text-sm font-medium text-gray-700 mb-1">Your name</label>
-      <input
-        v-model="playerName"
-        type="text"
-        placeholder="Enter your name..."
-        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-      />
+    <!-- Sign-in banner -->
+    <div v-if="!authenticatedUserId && isConnected" class="p-3 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
+      <p class="text-sm text-blue-800">
+        <button @click="$emit('showAuth')" class="font-semibold underline">Sign in</button>
+        to appear in the lobby and challenge players.
+      </p>
     </div>
 
-    <!-- Challenge error -->
-    <div v-if="challengeError" class="p-3 bg-red-50 border-l-4 border-red-400 rounded-lg">
-      <p class="text-sm text-red-700">{{ challengeError }}</p>
-    </div>
-
-    <!-- Outgoing challenge waiting state -->
-    <div v-if="outgoingChallenge" class="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-3">
+    <!-- Outgoing challenge state -->
+    <div v-if="outgoingChallenge" class="p-3 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-2">
       <div class="flex items-center gap-3">
         <div class="animate-pulse w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
         <p class="text-sm font-semibold text-blue-800">
@@ -211,8 +202,39 @@ const statusText: Record<string, string> = {
       </button>
     </div>
 
-    <!-- Action buttons -->
+    <!-- Back button (always at bottom) -->
+    <button
+      @click="showLobby = false; lobbyFilter = ''"
+      class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
+        <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
+      </svg>
+      Back
+    </button>
+  </div>
+
+  <!-- ── MAIN MENU VIEW ─────────────────────────────────────────────────── -->
+  <div v-else class="w-full space-y-3">
+    <!-- Challenge error -->
+    <div v-if="challengeError" class="p-3 bg-red-50 border-l-4 border-red-400 rounded-lg">
+      <p class="text-sm text-red-700">{{ challengeError }}</p>
+    </div>
+
+    <!-- Main action buttons -->
     <div v-if="!showJoinForm && !showAIDifficulty && !outgoingChallenge" class="space-y-3">
+      <!-- Lobby -->
+      <button
+        v-if="isConnected"
+        @click="showLobby = true"
+        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md flex items-center justify-between"
+      >
+        <span>👥 Lobby</span>
+        <span v-if="lobbyTotal > 0" class="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+          {{ lobbyTotal }} online
+        </span>
+      </button>
+
       <button
         v-if="isConnected"
         @click="handleCreateRoom"
@@ -244,6 +266,22 @@ const statusText: Record<string, string> = {
           <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
         </svg>
         Back to Game Selection
+      </button>
+    </div>
+
+    <!-- Outgoing challenge waiting state (on main menu) -->
+    <div v-if="outgoingChallenge" class="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-3">
+      <div class="flex items-center gap-3">
+        <div class="animate-pulse w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
+        <p class="text-sm font-semibold text-blue-800">
+          Waiting for <span class="font-bold">{{ outgoingChallenge.targetName }}</span> to respond…
+        </p>
+      </div>
+      <button
+        @click="$emit('cancelChallenge', outgoingChallenge.targetUserId)"
+        class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+      >
+        Cancel Challenge
       </button>
     </div>
 
@@ -289,7 +327,6 @@ const statusText: Record<string, string> = {
           @keyup.enter="handleJoinRoom"
         />
       </div>
-
       <button
         @click="handleJoinRoom"
         :disabled="!joinCode.trim()"
@@ -297,7 +334,6 @@ const statusText: Record<string, string> = {
       >
         Join Room
       </button>
-
       <button
         @click="showJoinForm = false; joinCode = ''"
         class="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
