@@ -61,6 +61,15 @@ export class Lobby {
     return player;
   }
 
+  updateStats(userId: string, winRate: number, totalGames: number): void {
+    const player = this.players.get(userId);
+    if (player) {
+      player.winRate = winRate;
+      player.totalGames = totalGames;
+      this._broadcast();
+    }
+  }
+
   setStatus(userId: string, status: LobbyStatus): void {
     const player = this.players.get(userId);
     if (player && player.status !== status) {

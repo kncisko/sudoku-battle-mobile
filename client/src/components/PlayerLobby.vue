@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   createRoom: [playerName: string]
   joinRoom: [roomCode: string, playerName: string]
+  createAIGame: [playerName: string, difficulty: 'beginner' | 'normal' | 'expert']
   back: []
   showAuth: []
   setIdle: []
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 const playerName = ref(props.authenticatedUsername || '')
 const joinCode = ref('')
 const showJoinForm = ref(false)
+const showAIDifficulty = ref(false)
 
 // Sync player name when auth state changes
 watch(() => props.authenticatedUsername, (name) => {
@@ -210,7 +212,7 @@ const statusText: Record<string, string> = {
     </div>
 
     <!-- Action buttons -->
-    <div v-if="!showJoinForm && !outgoingChallenge" class="space-y-3">
+    <div v-if="!showJoinForm && !showAIDifficulty && !outgoingChallenge" class="space-y-3">
       <button
         v-if="isConnected"
         @click="handleCreateRoom"
@@ -228,6 +230,13 @@ const statusText: Record<string, string> = {
       </button>
 
       <button
+        @click="showAIDifficulty = true"
+        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+      >
+        🤖 Play vs AI
+      </button>
+
+      <button
         @click="$emit('back')"
         class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
@@ -235,6 +244,35 @@ const statusText: Record<string, string> = {
           <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
         </svg>
         Back to Game Selection
+      </button>
+    </div>
+
+    <!-- AI difficulty picker -->
+    <div v-if="showAIDifficulty && !outgoingChallenge" class="space-y-3">
+      <p class="text-sm font-semibold text-gray-700 text-center">Select AI Difficulty</p>
+      <button
+        @click="$emit('createAIGame', resolvedName(), 'beginner')"
+        class="w-full bg-green-400 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+      >
+        Beginner
+      </button>
+      <button
+        @click="$emit('createAIGame', resolvedName(), 'normal')"
+        class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+      >
+        Normal
+      </button>
+      <button
+        @click="$emit('createAIGame', resolvedName(), 'expert')"
+        class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+      >
+        Expert
+      </button>
+      <button
+        @click="showAIDifficulty = false"
+        class="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+      >
+        Cancel
       </button>
     </div>
 

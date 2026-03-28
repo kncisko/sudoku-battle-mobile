@@ -336,6 +336,11 @@ const handlePlayerLobbyBack = () => {
   gameModeSelected.value = false
 }
 
+const handlePlayerLobbyCreateAIGame = (playerName: string, difficulty: AIDifficulty) => {
+  showPlayerLobby.value = false
+  handleCreateAIGame(playerName, difficulty)
+}
+
 // When a room code arrives while in the PlayerLobby (challenge accepted), navigate to game room
 watch(() => onlineGame.roomCode.value, (code) => {
   if (code && showPlayerLobby.value) {
@@ -350,6 +355,14 @@ watch(showPlayerLobby, (showing) => {
     onlineGame.joinLobby(auth.user.value.id, name)
   } else if (!showing) {
     onlineGame.leaveLobby()
+  }
+})
+
+// Also join lobby if the user signs in while already on the lobby screen
+watch(() => auth.user.value, (user) => {
+  if (user && showPlayerLobby.value) {
+    const name = auth.profile.value?.username || user.email || 'Player'
+    onlineGame.joinLobby(user.id, name)
   }
 })
 
@@ -1054,6 +1067,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           :challenge-error="onlineGame.challengeError.value"
           @create-room="handlePlayerLobbyCreateRoom"
           @join-room="handlePlayerLobbyJoinRoom"
+          @create-a-i-game="handlePlayerLobbyCreateAIGame"
           @back="handlePlayerLobbyBack"
           @show-auth="showAuthModal = true"
           @set-idle="onlineGame.setLobbyIdle()"

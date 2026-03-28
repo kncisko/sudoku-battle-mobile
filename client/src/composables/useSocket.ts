@@ -186,9 +186,9 @@ export function useSocket() {
       reconnectionDelayMax: 5000,
       reconnectionAttempts: Infinity, // Never stop trying to reconnect
       timeout: 20000, // Increased timeout
-      transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+      transports: ['polling', 'websocket'], // Start with polling (HTTP), upgrade to websocket if available
       upgrade: true,
-      rememberUpgrade: true
+      rememberUpgrade: false
     })
 
     // Connection event handlers
@@ -211,7 +211,6 @@ export function useSocket() {
 
       // Re-join lobby if we were in it before the disconnect
       if (lobbyUserId.value && lobbyUserName.value) {
-        console.log('🏠 Reconnected - rejoining lobby')
         socket.value?.emit('join_lobby', { userId: lobbyUserId.value, name: lobbyUserName.value })
       }
     })
@@ -511,6 +510,11 @@ export function useSocket() {
     socket.value.on('lobby_update', (data: { players: LobbyPlayerPublic[]; total: number }) => {
       lobbyPlayers.value = data.players
       lobbyTotal.value = data.total
+    })
+
+    // Lobby error (server rejected join)
+    socket.value.on('lobby_error', (data: { message: string }) => {
+      console.error('🚫 lobby_error from server:', data.message)
     })
 
     // Challenge events

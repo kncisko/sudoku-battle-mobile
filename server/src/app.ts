@@ -15,10 +15,12 @@ export const httpServer = createServer(app);
 // Configure CORS for Express
 const corsOptions = {
   origin: [
-    'http://localhost:5173', // Development (default Vite port)
-    'http://localhost:5174', // Development (alternate port)
-    'http://192.168.0.178:5173', // Local network development
-    'https://sudoku-battle.kresimirnovak.eu' // Production
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://192.168.0.178:5173',
+    'https://sudoku-battle.kresimirnovak.eu',
+    'capacitor://localhost', // iOS Capacitor
+    'https://localhost', // Android Capacitor
   ],
   methods: ['GET', 'POST'],
   credentials: true
@@ -39,9 +41,12 @@ const rooms = new Map<string, GameRoom>();
 const socketToRoom = new Map<string, string>(); // socketId → roomCode
 const forfeitTimers = new Map<string, ReturnType<typeof setTimeout>>(); // roomCode → timer
 
-// Lobby — IO injected as a dependency so Lobby.ts stays testable
+// Lobby — IO injected as a dependency so Lobby.ts stays testable.
+// Use direct socket lookup instead of io.to(socketId) to avoid delivery
+// issues on reverse-proxied / cPanel-hosted servers.
 const lobby = new Lobby((socketId, players, total) => {
-  io.to(socketId).emit('lobby_update', { players, total });
+  const target = io.sockets.sockets.get(socketId);
+  target?.emit('lobby_update', { players, total });
 });
 
 const CHALLENGE_TIMEOUT_SECS = 60;
@@ -156,7 +161,6 @@ async function makeAIMove(roomCode: string): Promise<void> {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
-
   // Clock sync: client sends its timestamp, server echoes it back with server time
   socket.on('ping_time', (data: { clientTime: number }) => {
     socket.emit('pong_time', { serverTime: Date.now(), clientTime: data.clientTime });
@@ -171,9 +175,16 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const { winRate, totalGames } = await fetchPlayerRating(userId);
-    lobby.add(socket.id, userId, name, winRate, totalGames);
+    // Add immediately with default stats so the player appears in the lobby right away
+    // (avoids stale socket-ID window if the async DB call takes >0ms)
+    lobby.add(socket.id, userId, name, 0, 0);
     console.log(`${name} joined lobby (${lobby.size()} online)`);
+
+    // Fetch real stats and update asynchronously
+    const { winRate, totalGames } = await fetchPlayerRating(userId);
+    if (totalGames > 0) {
+      lobby.updateStats(userId, winRate, totalGames);
+    }
   });
 
   socket.on('leave_lobby', () => {
@@ -752,7 +763,7 @@ io.on('connection', (socket) => {
 
 // Basic health check endpoint
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), build: 'lobby-v3' });
 });
 
 // Database connectivity test
