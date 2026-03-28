@@ -828,7 +828,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   />
 
   <!-- Top Bar Buttons (only show on home page, not during Classic game) -->
-  <div v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value" class="fixed top-[54px] left-4 z-50 flex gap-2">
+  <div v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value" class="fixed top-[54px] left-[19px] z-50 flex gap-2">
     <!-- Leaderboard Button -->
     <button
       @click="showLeaderboard = true"
@@ -871,7 +871,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <button
     v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
     @click="toggleMute"
-    class="fixed top-[54px] right-4 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    class="fixed top-[54px] right-[19px] z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
     :title="isMuted ? 'Unmute Music' : 'Mute Music'"
   >
     <span v-if="isMuted" class="text-2xl">🔇</span>
@@ -894,7 +894,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
 
   <!-- Main Game (only show when mode is selected) -->
   <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center px-[5vw] py-4 overflow-y-hidden">
-    <div class="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full relative game-panel-container">
+    <div class="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full relative z-[60] game-panel-container">
       <!-- Connection Status - top left during gameplay only (Battle mode only) -->
       <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[42px] left-[47px] flex items-center gap-2">
         <span class="relative flex h-2 w-2">

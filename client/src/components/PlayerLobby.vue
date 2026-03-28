@@ -36,10 +36,115 @@ watch(() => props.authenticatedUsername, (name) => {
   if (name && !playerName.value) playerName.value = name
 })
 
+void 0 // re-enable fake players by uncommenting below line in filteredPlayers
+const _FAKE_PLAYERS = [
+  { userId: 'fake-1',   name: 'Alice',       status: 'available', winRate: 0.72, totalGames: 134 },
+  { userId: 'fake-2',   name: 'Bob',         status: 'in_game',   winRate: 0.45, totalGames: 88  },
+  { userId: 'fake-3',   name: 'Charlie',     status: 'idle',      winRate: 0.61, totalGames: 52  },
+  { userId: 'fake-4',   name: 'Diana',       status: 'available', winRate: 0.83, totalGames: 201 },
+  { userId: 'fake-5',   name: 'Edward',      status: 'pending',   winRate: 0.39, totalGames: 17  },
+  { userId: 'fake-6',   name: 'Fiona',       status: 'available', winRate: 0.55, totalGames: 73  },
+  { userId: 'fake-7',   name: 'George',      status: 'in_game',   winRate: 0.68, totalGames: 156 },
+  { userId: 'fake-8',   name: 'Hannah',      status: 'available', winRate: 0.91, totalGames: 302 },
+  { userId: 'fake-9',   name: 'Ivan',        status: 'idle',      winRate: 0.44, totalGames: 29  },
+  { userId: 'fake-10',  name: 'Julia',       status: 'available', winRate: 0.77, totalGames: 118 },
+  { userId: 'fake-11',  name: 'Kevin',       status: 'in_game',   winRate: 0.50, totalGames: 64  },
+  { userId: 'fake-12',  name: 'Laura',       status: 'available', winRate: 0.66, totalGames: 95  },
+  { userId: 'fake-13',  name: 'Mike',        status: 'pending',   winRate: 0.33, totalGames: 9   },
+  { userId: 'fake-14',  name: 'Nina',        status: 'available', winRate: 0.88, totalGames: 247 },
+  { userId: 'fake-15',  name: 'Oscar',       status: 'idle',      winRate: 0.57, totalGames: 41  },
+  { userId: 'fake-16',  name: 'Paula',       status: 'available', winRate: 0.74, totalGames: 183 },
+  { userId: 'fake-17',  name: 'Quinn',       status: 'in_game',   winRate: 0.42, totalGames: 36  },
+  { userId: 'fake-18',  name: 'Rachel',      status: 'available', winRate: 0.80, totalGames: 220 },
+  { userId: 'fake-19',  name: 'Samuel',      status: 'idle',      winRate: 0.48, totalGames: 55  },
+  { userId: 'fake-20',  name: 'Tina',        status: 'available', winRate: 0.62, totalGames: 107 },
+  { userId: 'fake-21',  name: 'Ulrich',      status: 'in_game',   winRate: 0.71, totalGames: 143 },
+  { userId: 'fake-22',  name: 'Vera',        status: 'available', winRate: 0.58, totalGames: 67  },
+  { userId: 'fake-23',  name: 'Walter',      status: 'idle',      winRate: 0.35, totalGames: 23  },
+  { userId: 'fake-24',  name: 'Xena',        status: 'available', winRate: 0.85, totalGames: 189 },
+  { userId: 'fake-25',  name: 'Yusuf',       status: 'pending',   winRate: 0.47, totalGames: 38  },
+  { userId: 'fake-26',  name: 'Zara',        status: 'available', winRate: 0.69, totalGames: 112 },
+  { userId: 'fake-27',  name: 'Aaron',       status: 'in_game',   winRate: 0.53, totalGames: 79  },
+  { userId: 'fake-28',  name: 'Bella',       status: 'available', winRate: 0.76, totalGames: 165 },
+  { userId: 'fake-29',  name: 'Carlos',      status: 'idle',      winRate: 0.41, totalGames: 31  },
+  { userId: 'fake-30',  name: 'Daria',       status: 'available', winRate: 0.87, totalGames: 278 },
+  { userId: 'fake-31',  name: 'Ethan',       status: 'in_game',   winRate: 0.60, totalGames: 98  },
+  { userId: 'fake-32',  name: 'Freya',       status: 'available', winRate: 0.73, totalGames: 141 },
+  { userId: 'fake-33',  name: 'Goran',       status: 'pending',   winRate: 0.36, totalGames: 14  },
+  { userId: 'fake-34',  name: 'Helena',      status: 'available', winRate: 0.82, totalGames: 213 },
+  { userId: 'fake-35',  name: 'Igor',        status: 'idle',      winRate: 0.49, totalGames: 44  },
+  { userId: 'fake-36',  name: 'Jana',        status: 'available', winRate: 0.65, totalGames: 88  },
+  { userId: 'fake-37',  name: 'Kai',         status: 'in_game',   winRate: 0.54, totalGames: 72  },
+  { userId: 'fake-38',  name: 'Lena',        status: 'available', winRate: 0.79, totalGames: 197 },
+  { userId: 'fake-39',  name: 'Marco',       status: 'idle',      winRate: 0.43, totalGames: 27  },
+  { userId: 'fake-40',  name: 'Nadia',       status: 'available', winRate: 0.90, totalGames: 334 },
+  { userId: 'fake-41',  name: 'Oliver',      status: 'in_game',   winRate: 0.56, totalGames: 81  },
+  { userId: 'fake-42',  name: 'Petra',       status: 'available', winRate: 0.67, totalGames: 103 },
+  { userId: 'fake-43',  name: 'Radu',        status: 'pending',   winRate: 0.31, totalGames: 8   },
+  { userId: 'fake-44',  name: 'Sofia',       status: 'available', winRate: 0.84, totalGames: 256 },
+  { userId: 'fake-45',  name: 'Tobias',      status: 'idle',      winRate: 0.46, totalGames: 35  },
+  { userId: 'fake-46',  name: 'Uma',         status: 'available', winRate: 0.70, totalGames: 129 },
+  { userId: 'fake-47',  name: 'Viktor',      status: 'in_game',   winRate: 0.63, totalGames: 117 },
+  { userId: 'fake-48',  name: 'Wendy',       status: 'available', winRate: 0.78, totalGames: 174 },
+  { userId: 'fake-49',  name: 'Xander',      status: 'idle',      winRate: 0.40, totalGames: 19  },
+  { userId: 'fake-50',  name: 'Yuki',        status: 'available', winRate: 0.86, totalGames: 291 },
+  { userId: 'fake-51',  name: 'Zoran',       status: 'in_game',   winRate: 0.52, totalGames: 61  },
+  { userId: 'fake-52',  name: 'Amber',       status: 'available', winRate: 0.64, totalGames: 92  },
+  { userId: 'fake-53',  name: 'Bruno',       status: 'pending',   winRate: 0.37, totalGames: 12  },
+  { userId: 'fake-54',  name: 'Clara',       status: 'available', winRate: 0.81, totalGames: 208 },
+  { userId: 'fake-55',  name: 'Denis',       status: 'idle',      winRate: 0.45, totalGames: 33  },
+  { userId: 'fake-56',  name: 'Elena',       status: 'available', winRate: 0.75, totalGames: 158 },
+  { userId: 'fake-57',  name: 'Filip',       status: 'in_game',   winRate: 0.59, totalGames: 86  },
+  { userId: 'fake-58',  name: 'Gloria',      status: 'available', winRate: 0.89, totalGames: 317 },
+  { userId: 'fake-59',  name: 'Haris',       status: 'idle',      winRate: 0.42, totalGames: 26  },
+  { userId: 'fake-60',  name: 'Irena',       status: 'available', winRate: 0.68, totalGames: 121 },
+  { userId: 'fake-61',  name: 'Jovan',       status: 'in_game',   winRate: 0.51, totalGames: 58  },
+  { userId: 'fake-62',  name: 'Katia',       status: 'available', winRate: 0.77, totalGames: 169 },
+  { userId: 'fake-63',  name: 'Luka',        status: 'pending',   winRate: 0.34, totalGames: 11  },
+  { userId: 'fake-64',  name: 'Marta',       status: 'available', winRate: 0.83, totalGames: 234 },
+  { userId: 'fake-65',  name: 'Nikola',      status: 'idle',      winRate: 0.47, totalGames: 39  },
+  { userId: 'fake-66',  name: 'Olga',        status: 'available', winRate: 0.71, totalGames: 136 },
+  { userId: 'fake-67',  name: 'Pavle',       status: 'in_game',   winRate: 0.55, totalGames: 75  },
+  { userId: 'fake-68',  name: 'Rosa',        status: 'available', winRate: 0.80, totalGames: 225 },
+  { userId: 'fake-69',  name: 'Stefan',      status: 'idle',      winRate: 0.44, totalGames: 30  },
+  { userId: 'fake-70',  name: 'Tamara',      status: 'available', winRate: 0.87, totalGames: 263 },
+  { userId: 'fake-71',  name: 'Uros',        status: 'in_game',   winRate: 0.61, totalGames: 94  },
+  { userId: 'fake-72',  name: 'Valentina',   status: 'available', winRate: 0.73, totalGames: 147 },
+  { userId: 'fake-73',  name: 'William',     status: 'pending',   winRate: 0.38, totalGames: 16  },
+  { userId: 'fake-74',  name: 'Xiao',        status: 'available', winRate: 0.85, totalGames: 282 },
+  { userId: 'fake-75',  name: 'Yana',        status: 'idle',      winRate: 0.50, totalGames: 48  },
+  { userId: 'fake-76',  name: 'Zdravko',     status: 'available', winRate: 0.66, totalGames: 109 },
+  { userId: 'fake-77',  name: 'Ana',         status: 'in_game',   winRate: 0.57, totalGames: 83  },
+  { userId: 'fake-78',  name: 'Boris',       status: 'available', winRate: 0.76, totalGames: 178 },
+  { userId: 'fake-79',  name: 'Chloe',       status: 'idle',      winRate: 0.43, totalGames: 22  },
+  { userId: 'fake-80',  name: 'Drazen',      status: 'available', winRate: 0.92, totalGames: 341 },
+  { userId: 'fake-81',  name: 'Eva',         status: 'in_game',   winRate: 0.54, totalGames: 69  },
+  { userId: 'fake-82',  name: 'Franjo',      status: 'available', winRate: 0.69, totalGames: 126 },
+  { userId: 'fake-83',  name: 'Gordana',     status: 'pending',   winRate: 0.32, totalGames: 7   },
+  { userId: 'fake-84',  name: 'Hrvoje',      status: 'available', winRate: 0.81, totalGames: 216 },
+  { userId: 'fake-85',  name: 'Ivana',       status: 'idle',      winRate: 0.46, totalGames: 37  },
+  { userId: 'fake-86',  name: 'Josip',       status: 'available', winRate: 0.74, totalGames: 152 },
+  { userId: 'fake-87',  name: 'Kristina',    status: 'in_game',   winRate: 0.62, totalGames: 101 },
+  { userId: 'fake-88',  name: 'Leon',        status: 'available', winRate: 0.78, totalGames: 191 },
+  { userId: 'fake-89',  name: 'Maja',        status: 'idle',      winRate: 0.41, totalGames: 24  },
+  { userId: 'fake-90',  name: 'Nenad',       status: 'available', winRate: 0.88, totalGames: 307 },
+  { userId: 'fake-91',  name: 'Oleg',        status: 'in_game',   winRate: 0.53, totalGames: 77  },
+  { userId: 'fake-92',  name: 'Patricija',   status: 'available', winRate: 0.67, totalGames: 115 },
+  { userId: 'fake-93',  name: 'Renata',      status: 'pending',   winRate: 0.36, totalGames: 13  },
+  { userId: 'fake-94',  name: 'Srecko',      status: 'available', winRate: 0.84, totalGames: 244 },
+  { userId: 'fake-95',  name: 'Tatjana',     status: 'idle',      winRate: 0.48, totalGames: 42  },
+  { userId: 'fake-96',  name: 'Ugljesa',     status: 'available', winRate: 0.70, totalGames: 133 },
+  { userId: 'fake-97',  name: 'Vesna',       status: 'in_game',   winRate: 0.58, totalGames: 89  },
+  { userId: 'fake-98',  name: 'Zlatko',      status: 'available', winRate: 0.75, totalGames: 162 },
+  { userId: 'fake-99',  name: 'Anja',        status: 'idle',      winRate: 0.44, totalGames: 28  },
+  { userId: 'fake-100', name: 'Kresimir2',   status: 'available', winRate: 0.93, totalGames: 412 },
+] as import('../composables/useSocket').LobbyPlayerPublic[]
+
 const filteredPlayers = computed(() => {
+  const all = [...props.lobbyPlayers, ...([] as typeof _FAKE_PLAYERS) /*, ..._FAKE_PLAYERS */]
   const q = lobbyFilter.value.trim().toLowerCase()
-  if (!q) return props.lobbyPlayers
-  return props.lobbyPlayers.filter(p => p.name.toLowerCase().includes(q))
+  if (!q) return all
+  return all.filter(p => p.name.toLowerCase().startsWith(q))
 })
 
 // ── Idle detection ──────────────────────────────────────────────────────────
@@ -106,6 +211,8 @@ const statusText: Record<string, string> = {
   pending: 'text-orange-700',
   in_game: 'text-gray-500',
 }
+
+defineExpose({ showLobby })
 </script>
 
 <template>
@@ -119,7 +226,8 @@ const statusText: Record<string, string> = {
 
     <!-- Filter -->
     <input
-      v-model="lobbyFilter"
+      :value="lobbyFilter"
+      @input="lobbyFilter = ($event.target as HTMLInputElement).value"
       type="text"
       placeholder="Search players..."
       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
