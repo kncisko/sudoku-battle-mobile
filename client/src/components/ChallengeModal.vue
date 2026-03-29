@@ -31,7 +31,7 @@ const urgency = () => countdown.value <= 10
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in">
 
       <!-- Header -->

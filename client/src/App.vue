@@ -684,40 +684,6 @@ watch(gameStatus, async (newStatus, oldStatus) => {
   }
 })
 
-// Save game result from winner's device (or player1 on tie) to avoid duplicates
-watch(isFinished, async (finished) => {
-  if (!finished || gameMode.value !== 'online') return
-
-  const player1 = players.value[0] as Player
-  const player2 = players.value[1] as Player
-  if (!player1 || !player2) return
-
-  const player1UserId = player1.userId || null
-  const player2UserId = player2.userId || null
-  if (!player1UserId || !player2UserId) return
-
-  const myUserId = auth.user.value?.id
-  if (!myUserId) return
-
-  const winnerId = (winner.value as Player | null)?.userId || null
-  const isTie = !winner.value
-
-  // Winner saves; on tie player1 saves — exactly one insert per game
-  const shouldSave = isTie ? myUserId === player1UserId : myUserId === winnerId
-  if (!shouldSave) return
-
-  const gameDuration = Math.floor((Date.now() - (onlineGame.gameStartTime.value || Date.now())) / 1000)
-
-  await userStats.saveGameResult({
-    player1_id: player1UserId,
-    player2_id: player2UserId,
-    winner_id: winnerId,
-    player1_score: scores.value[player1.id] || 0,
-    player2_score: scores.value[player2.id] || 0,
-    early_win: earlyWin.value || false,
-    game_duration: gameDuration
-  })
-})
 
 // Keep screen awake during gameplay
 watch([isPlaying, () => classicGame.isPlaying.value], async ([battlePlaying, classicPlaying]) => {

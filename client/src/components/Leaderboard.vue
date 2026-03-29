@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import type { LeaderboardEntry } from '../lib/supabase'
 
@@ -8,7 +8,7 @@ interface Props {
   currentUserId?: string | null
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   close: []
@@ -35,159 +35,127 @@ const getMonthStart = (): Date => {
   return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
 }
 
+const QUERY_TIMEOUT_MS = 10_000
+
+const fetchLeaderboardData = async (): Promise<void> => {
+  let query = supabase
+    .from('game_results')
+    .select('*')
+
+  if (selectedFilter.value === 'week') {
+    query = query.gte('created_at', getWeekStart().toISOString())
+  } else if (selectedFilter.value === 'month') {
+    query = query.gte('created_at', getMonthStart().toISOString())
+  }
+
+  const { data: gameResults, error: queryError } = await query
+
+  if (queryError) throw queryError
+
+  if (!gameResults || gameResults.length === 0) {
+    leaderboard.value = []
+    return
+  }
+
+  const userIds = new Set<string>()
+  gameResults.forEach((game: any) => {
+    if (game.player1_id) userIds.add(game.player1_id)
+    if (game.player2_id) userIds.add(game.player2_id)
+  })
+
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, username, email')
+    .in('id', Array.from(userIds))
+
+  if (profileError) throw profileError
+
+  const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
+
+  const userStats = new Map<string, {
+    user_id: string
+    username: string | null
+    email: string
+    total_games: number
+    wins: number
+    losses: number
+    draws: number
+    win_rate: number
+    total_score: number
+    avg_score: number
+  }>()
+
+  gameResults.forEach((game: any) => {
+    if (game.player1_id) {
+      const p1Id = game.player1_id
+      const p1Profile = profileMap.get(p1Id)
+      if (p1Profile && !userStats.has(p1Id)) {
+        userStats.set(p1Id, { user_id: p1Id, username: p1Profile.username || null, email: p1Profile.email, total_games: 0, wins: 0, losses: 0, draws: 0, win_rate: 0, total_score: 0, avg_score: 0 })
+      }
+      if (userStats.has(p1Id)) {
+        const s = userStats.get(p1Id)!
+        s.total_games++
+        s.total_score += game.player1_score || 0
+        if (game.winner_id === p1Id) s.wins++
+        else if (game.winner_id === null) s.draws++
+        else s.losses++
+      }
+    }
+    if (game.player2_id) {
+      const p2Id = game.player2_id
+      const p2Profile = profileMap.get(p2Id)
+      if (p2Profile && !userStats.has(p2Id)) {
+        userStats.set(p2Id, { user_id: p2Id, username: p2Profile.username || null, email: p2Profile.email, total_games: 0, wins: 0, losses: 0, draws: 0, win_rate: 0, total_score: 0, avg_score: 0 })
+      }
+      if (userStats.has(p2Id)) {
+        const s = userStats.get(p2Id)!
+        s.total_games++
+        s.total_score += game.player2_score || 0
+        if (game.winner_id === p2Id) s.wins++
+        else if (game.winner_id === null) s.draws++
+        else s.losses++
+      }
+    }
+  })
+
+  const aggregatedStats = Array.from(userStats.values()).map(stats => ({
+    ...stats,
+    win_rate: stats.total_games > 0 ? Math.round((stats.wins / stats.total_games) * 100 * 100) / 100 : 0,
+    avg_score: stats.total_games > 0 ? Math.round((stats.total_score / stats.total_games) * 100) / 100 : 0
+  }))
+
+  aggregatedStats.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.win_rate - a.win_rate)
+
+  leaderboard.value = aggregatedStats.slice(0, 50)
+}
+
 const loadLeaderboard = async () => {
+  loading.value = true
+  error.value = null
+
   try {
-    loading.value = true
-    error.value = null
-
-    // Query game_results with time filter and aggregate client-side
-    let query = supabase
-      .from('game_results')
-      .select('*')
-
-    // Apply time filter
-    if (selectedFilter.value === 'week') {
-      const weekStart = getWeekStart()
-      query = query.gte('created_at', weekStart.toISOString())
-    } else if (selectedFilter.value === 'month') {
-      const monthStart = getMonthStart()
-      query = query.gte('created_at', monthStart.toISOString())
-    }
-
-    const { data: gameResults, error: queryError } = await query
-
-    if (queryError) {
-      console.error('Supabase query error:', queryError)
-      throw queryError
-    }
-
-    if (!gameResults || gameResults.length === 0) {
-      leaderboard.value = []
-      return
-    }
-
-    // Fetch unique user IDs
-    const userIds = new Set<string>()
-    gameResults.forEach((game: any) => {
-      if (game.player1_id) userIds.add(game.player1_id)
-      if (game.player2_id) userIds.add(game.player2_id)
-    })
-
-    // Fetch user profiles
-    const { data: profiles, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, username, email')
-      .in('id', Array.from(userIds))
-
-    if (profileError) {
-      console.error('Error fetching profiles:', profileError)
-      throw profileError
-    }
-
-    // Create a map of user profiles
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
-
-    // Aggregate results client-side
-    const userStats = new Map<string, {
-      user_id: string
-      username: string | null
-      email: string
-      total_games: number
-      wins: number
-      losses: number
-      draws: number
-      win_rate: number
-      total_score: number
-      avg_score: number
-    }>()
-
-    gameResults.forEach((game: any) => {
-      // Process player 1
-      if (game.player1_id) {
-        const p1Id = game.player1_id
-        const p1Profile = profileMap.get(p1Id)
-        if (p1Profile && !userStats.has(p1Id)) {
-          userStats.set(p1Id, {
-            user_id: p1Id,
-            username: p1Profile.username || null,
-            email: p1Profile.email,
-            total_games: 0,
-            wins: 0,
-            losses: 0,
-            draws: 0,
-            win_rate: 0,
-            total_score: 0,
-            avg_score: 0
-          })
-        }
-        if (userStats.has(p1Id)) {
-          const p1Stats = userStats.get(p1Id)!
-          p1Stats.total_games++
-          p1Stats.total_score += game.player1_score || 0
-          if (game.winner_id === p1Id) p1Stats.wins++
-          else if (game.winner_id === null) p1Stats.draws++
-          else p1Stats.losses++
-        }
-      }
-
-      // Process player 2
-      if (game.player2_id) {
-        const p2Id = game.player2_id
-        const p2Profile = profileMap.get(p2Id)
-        if (p2Profile && !userStats.has(p2Id)) {
-          userStats.set(p2Id, {
-            user_id: p2Id,
-            username: p2Profile.username || null,
-            email: p2Profile.email,
-            total_games: 0,
-            wins: 0,
-            losses: 0,
-            draws: 0,
-            win_rate: 0,
-            total_score: 0,
-            avg_score: 0
-          })
-        }
-        if (userStats.has(p2Id)) {
-          const p2Stats = userStats.get(p2Id)!
-          p2Stats.total_games++
-          p2Stats.total_score += game.player2_score || 0
-          if (game.winner_id === p2Id) p2Stats.wins++
-          else if (game.winner_id === null) p2Stats.draws++
-          else p2Stats.losses++
-        }
-      }
-    })
-
-    // Calculate win rates and avg scores, then convert to array
-    const aggregatedStats = Array.from(userStats.values()).map(stats => ({
-      ...stats,
-      win_rate: stats.total_games > 0
-        ? Math.round((stats.wins / stats.total_games) * 100 * 100) / 100
-        : 0,
-      avg_score: stats.total_games > 0
-        ? Math.round((stats.total_score / stats.total_games) * 100) / 100
-        : 0
-    }))
-
-    // Sort by wins DESC, then win_rate DESC
-    aggregatedStats.sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins
-      return b.win_rate - a.win_rate
-    })
-
-    leaderboard.value = aggregatedStats.slice(0, 50)
+    await Promise.race([
+      fetchLeaderboardData(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT')), QUERY_TIMEOUT_MS)
+      )
+    ])
   } catch (err: any) {
-    console.error('Error loading leaderboard:', err)
-    error.value = 'Failed to load leaderboard'
+    if (err.message === 'TIMEOUT') {
+      error.value = 'Request timed out — tap Refresh to try again'
+    } else {
+      console.error('Error loading leaderboard:', err)
+      error.value = 'Failed to load leaderboard'
+    }
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  loadLeaderboard()
-})
+// Reload whenever the modal is opened
+watch(() => props.isOpen, (open) => {
+  if (open) loadLeaderboard()
+}, { immediate: true })
 
 const getRankEmoji = (rank: number) => {
   if (rank === 1) return '🥇'
