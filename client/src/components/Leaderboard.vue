@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
 import type { LeaderboardEntry } from '../lib/supabase'
 
@@ -14,10 +14,20 @@ const emit = defineEmits<{
   close: []
 }>()
 
+// ── Configurable cap ──────────────────────────────────────────────────────
+const MAX_LEADERBOARD_ENTRIES = 100
+
 const leaderboard = ref<LeaderboardEntry[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const selectedFilter = ref<'all' | 'week' | 'month'>('all')
+
+// Current user's rank in the full sorted list (may be outside top MAX)
+const myRank = ref<number | null>(null)
+const myRankEntry = ref<LeaderboardEntry | null>(null)
+
+// Ref to the scrollable content container
+const scrollContainer = ref<HTMLElement | null>(null)
 
 // Fake entries for scroll testing — to disable, change the spread to ([] as typeof _FAKE_ENTRIES)
 const _FAKE_ENTRIES: LeaderboardEntry[] = [
@@ -41,6 +51,27 @@ const _FAKE_ENTRIES: LeaderboardEntry[] = [
   { user_id: 'fake-18', username: 'ColCrusher',      email: 'fake18@test.com', total_games: 19, wins: 8,  losses: 9,  draws: 2, win_rate: 42.1, total_score: 1520, avg_score: 80.0 },
   { user_id: 'fake-19', username: 'SudokuSage',      email: 'fake19@test.com', total_games: 28, wins: 11, losses: 15, draws: 2, win_rate: 39.3, total_score: 2240, avg_score: 80.0 },
   { user_id: 'fake-20', username: 'GridGuru',        email: 'fake20@test.com', total_games: 12, wins: 4,  losses: 7,  draws: 1, win_rate: 33.3, total_score: 960,  avg_score: 80.0 },
+  // Below-the-fold fakes — 0 wins, ranked below real users to test scroll-to-position
+  { user_id: 'fake-21', username: 'NewbieNick',      email: 'fake21@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
+  { user_id: 'fake-22', username: 'LearnerLucy',     email: 'fake22@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
+  { user_id: 'fake-23', username: 'TryingTom',       email: 'fake23@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0 },
+  { user_id: 'fake-24', username: 'PracticePaul',    email: 'fake24@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
+  { user_id: 'fake-25', username: 'BeginnerBeth',    email: 'fake25@test.com', total_games: 7,  wins: 0, losses: 6, draws: 1, win_rate: 0.0, total_score: 350, avg_score: 50.0 },
+  { user_id: 'fake-26', username: 'StartingSam',     email: 'fake26@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
+  { user_id: 'fake-27', username: 'FreshmanFinn',    email: 'fake27@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
+  { user_id: 'fake-28', username: 'RookieRita',      email: 'fake28@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
+  { user_id: 'fake-29', username: 'NoviceNate',      email: 'fake29@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0 },
+  { user_id: 'fake-30', username: 'GettingGood',     email: 'fake30@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
+  { user_id: 'fake-31', username: 'StillLearning',   email: 'fake31@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
+  { user_id: 'fake-32', username: 'AlmostThere',     email: 'fake32@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
+  { user_id: 'fake-33', username: 'WarmingUp',       email: 'fake33@test.com', total_games: 7,  wins: 0, losses: 6, draws: 1, win_rate: 0.0, total_score: 350, avg_score: 50.0 },
+  { user_id: 'fake-34', username: 'JustStarted',     email: 'fake34@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
+  { user_id: 'fake-35', username: 'EarlyDays',       email: 'fake35@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
+  { user_id: 'fake-36', username: 'FindingMyFeet',   email: 'fake36@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
+  { user_id: 'fake-37', username: 'InProgress',      email: 'fake37@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0 },
+  { user_id: 'fake-38', username: 'BuildingSkills',  email: 'fake38@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
+  { user_id: 'fake-39', username: 'GivingItAGo',     email: 'fake39@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
+  { user_id: 'fake-40', username: 'WorkInProgress',  email: 'fake40@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
 ]
 
 // Helper functions for date calculations
@@ -151,12 +182,25 @@ const fetchLeaderboardData = async (): Promise<void> => {
   const combined = [...aggregatedStats, ..._FAKE_ENTRIES /*, ...([] as typeof _FAKE_ENTRIES) */]
   combined.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.win_rate - a.win_rate)
 
-  leaderboard.value = combined.slice(0, 50)
+  // Capture current user's rank across ALL players before slicing
+  myRank.value = null
+  myRankEntry.value = null
+  if (props.currentUserId) {
+    const idx = combined.findIndex(e => e.user_id === props.currentUserId)
+    if (idx !== -1) {
+      myRank.value = idx + 1
+      myRankEntry.value = combined[idx]
+    }
+  }
+
+  leaderboard.value = combined.slice(0, MAX_LEADERBOARD_ENTRIES)
 }
 
 const loadLeaderboard = async () => {
   loading.value = true
   error.value = null
+  myRank.value = null
+  myRankEntry.value = null
 
   try {
     await Promise.race([
@@ -174,6 +218,30 @@ const loadLeaderboard = async () => {
     }
   } finally {
     loading.value = false
+  }
+
+  // Scroll after loading=false so the list rows are in the DOM
+  if (props.currentUserId && myRank.value !== null && myRank.value <= MAX_LEADERBOARD_ENTRIES) {
+    await nextTick()
+    const container = scrollContainer.value
+    const target = container?.querySelector(`[data-user-id="${props.currentUserId}"]`) as HTMLElement | null
+    if (container && target) {
+      const containerRect = container.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+      const targetScrollTop = container.scrollTop + targetRect.top - containerRect.top
+        - container.clientHeight / 2 + target.clientHeight / 2
+      const start = container.scrollTop
+      const distance = targetScrollTop - start
+      const duration = 600
+      const startTime = performance.now()
+      const easeInOut = (t: number) => 1 - Math.pow(1 - t, 3)
+      const animate = (now: number) => {
+        const progress = Math.min((now - startTime) / duration, 1)
+        container.scrollTop = start + distance * easeInOut(progress)
+        if (progress < 1) requestAnimationFrame(animate)
+      }
+      requestAnimationFrame(animate)
+    }
   }
 }
 
@@ -247,7 +315,7 @@ const closeModal = () => {
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto p-6">
+        <div ref="scrollContainer" class="flex-1 overflow-y-auto p-6">
           <!-- Loading State -->
           <div v-if="loading" class="flex items-center justify-center py-12">
             <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
@@ -269,6 +337,7 @@ const closeModal = () => {
             <div
               v-for="(entry, index) in leaderboard"
               :key="entry.user_id"
+              :data-user-id="entry.user_id"
               class="flex items-center gap-3 p-3 rounded-lg transition-all"
               :class="entry.user_id === currentUserId ? 'bg-blue-50 border-2 border-blue-500 shadow-md' : index === 0 ? 'bg-amber-50 border-2 border-amber-400' : index === 1 ? 'bg-slate-100 border-2 border-slate-400' : index === 2 ? 'bg-orange-50 border-2 border-orange-500' : 'bg-gray-50'"
             >
@@ -294,6 +363,32 @@ const closeModal = () => {
                   <span class="text-xs text-gray-500"><span class="font-semibold text-green-600">{{ entry.wins }}</span> wins</span>
                   <span class="text-xs text-gray-500"><span class="font-semibold text-blue-600">{{ entry.total_games }}</span> games</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Your rank outside top MAX_LEADERBOARD_ENTRIES -->
+        <div
+          v-if="myRank !== null && myRank > MAX_LEADERBOARD_ENTRIES && myRankEntry && !loading"
+          class="px-4 py-3 border-t border-blue-200 bg-blue-50"
+        >
+          <p class="text-xs text-blue-500 font-semibold uppercase tracking-wide mb-2">Your position</p>
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-white border-2 border-blue-500 shadow-sm">
+            <div class="text-sm font-bold text-blue-600 w-10 text-center flex-shrink-0">{{ myRank }}.</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <p class="font-semibold text-gray-800 truncate text-sm">
+                    {{ myRankEntry.username || myRankEntry.email.split('@')[0] }}
+                  </p>
+                  <span class="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">You</span>
+                </div>
+                <p class="text-sm font-bold text-purple-600 flex-shrink-0">{{ myRankEntry.win_rate.toFixed(1) }}%</p>
+              </div>
+              <div class="flex items-center gap-3 mt-0.5">
+                <span class="text-xs text-gray-500"><span class="font-semibold text-green-600">{{ myRankEntry.wins }}</span> wins</span>
+                <span class="text-xs text-gray-500"><span class="font-semibold text-blue-600">{{ myRankEntry.total_games }}</span> games</span>
               </div>
             </div>
           </div>
