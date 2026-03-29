@@ -881,20 +881,25 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <!-- Profile Dropdown -->
   <div
     v-if="showProfileDropdown && auth.profile.value"
-    class="fixed top-[118px] left-4 z-50 w-80"
+    class="fixed inset-0 z-[70]"
   >
-    <UserProfile
-      :profile="auth.profile.value"
-      :stats="userStats.stats.value"
-      @update-username="handleUpdateUsername"
-      @sign-out="handleSignOut"
-      @close="showProfileDropdown = false"
-    />
+    <div class="absolute inset-0" @click="showProfileDropdown = false"></div>
+    <div class="absolute top-[118px] left-[5vw] right-[5vw]">
+      <UserProfile
+        :profile="auth.profile.value"
+        :stats="userStats.stats.value"
+        @update-username="handleUpdateUsername"
+        @sign-out="handleSignOut"
+        @close="showProfileDropdown = false"
+      />
+    </div>
   </div>
 
   <!-- Main Game (only show when mode is selected) -->
   <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center px-[5vw] py-4 overflow-y-hidden">
     <div class="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full relative z-[60] game-panel-container">
+      <!-- Transparent overlay to block card interactions when a panel is open -->
+      <div v-if="showLeaderboard || showProfileDropdown || showHelp" class="absolute inset-0 rounded-lg z-10"></div>
       <!-- Connection Status - top left during gameplay only (Battle mode only) -->
       <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[42px] left-[47px] flex items-center gap-2">
         <span class="relative flex h-2 w-2">

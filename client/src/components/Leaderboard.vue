@@ -203,7 +203,7 @@ const closeModal = () => {
 
 <template>
   <Transition name="modal">
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div v-if="isOpen" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <!-- Backdrop -->
       <div class="absolute inset-0 bg-black bg-opacity-50" @click="closeModal"></div>
 
@@ -276,40 +276,30 @@ const closeModal = () => {
             <div
               v-for="(entry, index) in leaderboard"
               :key="entry.user_id"
-              class="flex items-center gap-4 p-4 rounded-lg transition-all"
-              :class="entry.user_id === currentUserId ? 'bg-blue-50 border-2 border-blue-500 shadow-md' : 'bg-gray-50 hover:bg-gray-100'"
+              class="flex items-center gap-3 p-3 rounded-lg transition-all"
+              :class="entry.user_id === currentUserId ? 'bg-blue-50 border-2 border-blue-500 shadow-md' : 'bg-gray-50'"
             >
               <!-- Rank -->
-              <div class="text-2xl font-bold w-12 text-center">
+              <div class="text-xl font-bold w-10 text-center flex-shrink-0">
                 {{ getRankEmoji(index + 1) }}
               </div>
 
-              <!-- Player Info -->
+              <!-- Name + stats -->
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <p class="font-semibold text-gray-800 truncate">
-                    {{ entry.username || entry.email.split('@')[0] }}
-                  </p>
-                  <span v-if="entry.user_id === currentUserId" class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                    You
-                  </span>
+                <!-- Line 1: name + win rate -->
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <p class="font-semibold text-gray-800 truncate">
+                      {{ entry.username || entry.email.split('@')[0] }}
+                    </p>
+                    <span v-if="entry.user_id === currentUserId" class="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">You</span>
+                  </div>
+                  <p class="text-sm font-bold text-purple-600 flex-shrink-0">{{ entry.win_rate.toFixed(1) }}%</p>
                 </div>
-                <p class="text-xs text-gray-500 truncate">{{ entry.email }}</p>
-              </div>
-
-              <!-- Stats -->
-              <div class="flex gap-6 text-center">
-                <div>
-                  <p class="text-lg font-bold text-green-600">{{ entry.wins }}</p>
-                  <p class="text-xs text-gray-600">Wins</p>
-                </div>
-                <div>
-                  <p class="text-lg font-bold text-blue-600">{{ entry.total_games }}</p>
-                  <p class="text-xs text-gray-600">Games</p>
-                </div>
-                <div>
-                  <p class="text-lg font-bold text-purple-600">{{ entry.win_rate.toFixed(1) }}%</p>
-                  <p class="text-xs text-gray-600">Win Rate</p>
+                <!-- Line 2: wins + games -->
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs text-gray-500"><span class="font-semibold text-green-600">{{ entry.wins }}</span> wins</span>
+                  <span class="text-xs text-gray-500"><span class="font-semibold text-blue-600">{{ entry.total_games }}</span> games</span>
                 </div>
               </div>
             </div>
