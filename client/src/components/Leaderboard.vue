@@ -19,6 +19,30 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const selectedFilter = ref<'all' | 'week' | 'month'>('all')
 
+// Fake entries for scroll testing — to disable, change the spread to ([] as typeof _FAKE_ENTRIES)
+const _FAKE_ENTRIES: LeaderboardEntry[] = [
+  { user_id: 'fake-1',  username: 'SudokuMaster',   email: 'fake1@test.com',  total_games: 42, wins: 35, losses: 5,  draws: 2, win_rate: 83.3, total_score: 3780, avg_score: 90.0 },
+  { user_id: 'fake-2',  username: 'PuzzleKing',      email: 'fake2@test.com',  total_games: 38, wins: 30, losses: 6,  draws: 2, win_rate: 78.9, total_score: 3230, avg_score: 85.0 },
+  { user_id: 'fake-3',  username: 'GridWarrior',     email: 'fake3@test.com',  total_games: 55, wins: 40, losses: 12, draws: 3, win_rate: 72.7, total_score: 4400, avg_score: 80.0 },
+  { user_id: 'fake-4',  username: 'NumberNinja',     email: 'fake4@test.com',  total_games: 29, wins: 20, losses: 7,  draws: 2, win_rate: 69.0, total_score: 2320, avg_score: 80.0 },
+  { user_id: 'fake-5',  username: 'LogicLord',       email: 'fake5@test.com',  total_games: 33, wins: 22, losses: 9,  draws: 2, win_rate: 66.7, total_score: 2640, avg_score: 80.0 },
+  { user_id: 'fake-6',  username: 'CellChampion',    email: 'fake6@test.com',  total_games: 47, wins: 30, losses: 14, draws: 3, win_rate: 63.8, total_score: 3760, avg_score: 80.0 },
+  { user_id: 'fake-7',  username: 'BoxBuster',       email: 'fake7@test.com',  total_games: 22, wins: 14, losses: 6,  draws: 2, win_rate: 63.6, total_score: 1760, avg_score: 80.0 },
+  { user_id: 'fake-8',  username: 'RowRuler',        email: 'fake8@test.com',  total_games: 18, wins: 11, losses: 5,  draws: 2, win_rate: 61.1, total_score: 1440, avg_score: 80.0 },
+  { user_id: 'fake-9',  username: 'ColConqueror',    email: 'fake9@test.com',  total_games: 25, wins: 15, losses: 8,  draws: 2, win_rate: 60.0, total_score: 2000, avg_score: 80.0 },
+  { user_id: 'fake-10', username: 'SudokuSlayer',    email: 'fake10@test.com', total_games: 40, wins: 24, losses: 13, draws: 3, win_rate: 60.0, total_score: 3200, avg_score: 80.0 },
+  { user_id: 'fake-11', username: 'GridGladiator',   email: 'fake11@test.com', total_games: 31, wins: 18, losses: 11, draws: 2, win_rate: 58.1, total_score: 2480, avg_score: 80.0 },
+  { user_id: 'fake-12', username: 'PuzzleProdigy',   email: 'fake12@test.com', total_games: 27, wins: 15, losses: 10, draws: 2, win_rate: 55.6, total_score: 2160, avg_score: 80.0 },
+  { user_id: 'fake-13', username: 'NumberCruncher',  email: 'fake13@test.com', total_games: 36, wins: 19, losses: 14, draws: 3, win_rate: 52.8, total_score: 2880, avg_score: 80.0 },
+  { user_id: 'fake-14', username: 'LogicLegend',     email: 'fake14@test.com', total_games: 20, wins: 10, losses: 8,  draws: 2, win_rate: 50.0, total_score: 1600, avg_score: 80.0 },
+  { user_id: 'fake-15', username: 'CellSolver',      email: 'fake15@test.com', total_games: 44, wins: 21, losses: 20, draws: 3, win_rate: 47.7, total_score: 3520, avg_score: 80.0 },
+  { user_id: 'fake-16', username: 'BoxBreaker',      email: 'fake16@test.com', total_games: 15, wins: 7,  losses: 6,  draws: 2, win_rate: 46.7, total_score: 1200, avg_score: 80.0 },
+  { user_id: 'fake-17', username: 'RowRanger',       email: 'fake17@test.com', total_games: 23, wins: 10, losses: 11, draws: 2, win_rate: 43.5, total_score: 1840, avg_score: 80.0 },
+  { user_id: 'fake-18', username: 'ColCrusher',      email: 'fake18@test.com', total_games: 19, wins: 8,  losses: 9,  draws: 2, win_rate: 42.1, total_score: 1520, avg_score: 80.0 },
+  { user_id: 'fake-19', username: 'SudokuSage',      email: 'fake19@test.com', total_games: 28, wins: 11, losses: 15, draws: 2, win_rate: 39.3, total_score: 2240, avg_score: 80.0 },
+  { user_id: 'fake-20', username: 'GridGuru',        email: 'fake20@test.com', total_games: 12, wins: 4,  losses: 7,  draws: 1, win_rate: 33.3, total_score: 960,  avg_score: 80.0 },
+]
+
 // Helper functions for date calculations
 const getWeekStart = (): Date => {
   const now = new Date()
@@ -124,9 +148,10 @@ const fetchLeaderboardData = async (): Promise<void> => {
     avg_score: stats.total_games > 0 ? Math.round((stats.total_score / stats.total_games) * 100) / 100 : 0
   }))
 
-  aggregatedStats.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.win_rate - a.win_rate)
+  const combined = [...aggregatedStats, ..._FAKE_ENTRIES /*, ...([] as typeof _FAKE_ENTRIES) */]
+  combined.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.win_rate - a.win_rate)
 
-  leaderboard.value = aggregatedStats.slice(0, 50)
+  leaderboard.value = combined.slice(0, 50)
 }
 
 const loadLeaderboard = async () => {
@@ -161,7 +186,7 @@ const getRankEmoji = (rank: number) => {
   if (rank === 1) return '🥇'
   if (rank === 2) return '🥈'
   if (rank === 3) return '🥉'
-  return `#${rank}`
+  return `${rank}.`
 }
 
 const closeModal = () => {
@@ -171,12 +196,12 @@ const closeModal = () => {
 
 <template>
   <Transition name="modal">
-    <div v-if="isOpen" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div v-if="isOpen" class="fixed inset-0 z-[70] flex items-center justify-center px-4 py-0">
       <!-- Backdrop -->
       <div class="absolute inset-0 bg-black bg-opacity-50" @click="closeModal"></div>
 
       <!-- Modal -->
-      <div class="relative bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col z-10">
+      <div class="relative bg-white rounded-lg shadow-2xl max-w-2xl w-full h-[80vh] flex flex-col z-10">
         <!-- Header -->
         <div class="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
@@ -245,7 +270,7 @@ const closeModal = () => {
               v-for="(entry, index) in leaderboard"
               :key="entry.user_id"
               class="flex items-center gap-3 p-3 rounded-lg transition-all"
-              :class="entry.user_id === currentUserId ? 'bg-blue-50 border-2 border-blue-500 shadow-md' : 'bg-gray-50'"
+              :class="entry.user_id === currentUserId ? 'bg-blue-50 border-2 border-blue-500 shadow-md' : index === 0 ? 'bg-amber-50 border-2 border-amber-400' : index === 1 ? 'bg-slate-100 border-2 border-slate-400' : index === 2 ? 'bg-orange-50 border-2 border-orange-500' : 'bg-gray-50'"
             >
               <!-- Rank -->
               <div class="text-xl font-bold w-10 text-center flex-shrink-0">
