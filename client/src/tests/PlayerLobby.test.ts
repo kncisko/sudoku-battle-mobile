@@ -68,15 +68,24 @@ async function openLobby(wrapper: ReturnType<typeof mountLobby>) {
 // ── rendering ─────────────────────────────────────────────────────────────────
 
 describe('PlayerLobby — rendering', () => {
-  it('shows "No players online" when list is empty', async () => {
+  it('shows "No available players" when list is empty (default Available mode)', async () => {
     const wrapper = mountLobby()
     await openLobby(wrapper)
-    expect(wrapper.text()).toContain('No players online')
+    expect(wrapper.text()).toContain('No available players right now')
   })
 
-  it('renders each player row', async () => {
+  it('renders available players in default mode', async () => {
     const wrapper = mountLobby({ lobbyPlayers: [ALICE, BOB], lobbyTotal: 2 })
     await openLobby(wrapper)
+    expect(wrapper.text()).toContain('Alice')    // available — shown
+    expect(wrapper.text()).not.toContain('Bob')  // idle — hidden in Available mode
+  })
+
+  it('renders all players when Show All is active', async () => {
+    const wrapper = mountLobby({ lobbyPlayers: [ALICE, BOB], lobbyTotal: 2 })
+    await openLobby(wrapper)
+    ;(wrapper.vm as any).showAll = true
+    await nextTick()
     expect(wrapper.text()).toContain('Alice')
     expect(wrapper.text()).toContain('Bob')
   })
@@ -130,9 +139,11 @@ describe('PlayerLobby — rendering', () => {
     expect(wrapper.text()).toContain('2 online')
   })
 
-  it('shows status labels correctly', async () => {
+  it('shows status labels correctly when Show All is active', async () => {
     const wrapper = mountLobby({ lobbyPlayers: [ALICE, BOB, IN_GAME], lobbyTotal: 3 })
     await openLobby(wrapper)
+    ;(wrapper.vm as any).showAll = true
+    await nextTick()
     expect(wrapper.text()).toContain('Available')
     expect(wrapper.text()).toContain('Away')
     expect(wrapper.text()).toContain('In game')

@@ -30,6 +30,7 @@ const showJoinForm = ref(false)
 const showAIDifficulty = ref(false)
 const showLobby = ref(false)
 const lobbyFilter = ref('')
+const showAll = ref(false)
 
 // Sync player name when auth state changes
 watch(() => props.authenticatedUsername, (name) => {
@@ -142,9 +143,10 @@ const _FAKE_PLAYERS = [
 
 const filteredPlayers = computed(() => {
   const all = [...props.lobbyPlayers, ...([] as typeof _FAKE_PLAYERS) /*, ..._FAKE_PLAYERS */]
+  const byStatus = showAll.value ? all : all.filter(p => p.status === 'available')
   const q = lobbyFilter.value.trim().toLowerCase()
-  if (!q) return all
-  return all.filter(p => p.name.toLowerCase().startsWith(q))
+  if (!q) return byStatus
+  return byStatus.filter(p => p.name.toLowerCase().startsWith(q))
 })
 
 // ── Idle detection ──────────────────────────────────────────────────────────
@@ -212,7 +214,7 @@ const statusText: Record<string, string> = {
   in_game: 'text-gray-500',
 }
 
-defineExpose({ showLobby })
+defineExpose({ showLobby, showAll })
 </script>
 
 <template>
@@ -222,6 +224,20 @@ defineExpose({ showLobby })
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-bold text-gray-800">Online Players</h2>
       <span v-if="lobbyTotal > 0" class="text-xs text-gray-400">{{ lobbyTotal }} online</span>
+    </div>
+
+    <!-- Available / All toggle -->
+    <div class="flex rounded-lg overflow-hidden border border-gray-200 w-full">
+      <button
+        @click="showAll = false"
+        class="flex-1 py-1 text-xs font-semibold transition-colors"
+        :class="!showAll ? 'bg-blue-500 text-white' : 'bg-white text-gray-500'"
+      >Available</button>
+      <button
+        @click="showAll = true"
+        class="flex-1 py-1 text-xs font-semibold transition-colors border-l border-gray-200"
+        :class="showAll ? 'bg-blue-500 text-white' : 'bg-white text-gray-500'"
+      >All</button>
     </div>
 
     <!-- Filter -->
@@ -245,7 +261,7 @@ defineExpose({ showLobby })
 
       <!-- Empty state -->
       <div v-else-if="filteredPlayers.length === 0" class="p-6 text-center text-gray-400 text-sm">
-        {{ lobbyFilter ? 'No players match your search' : 'No players online right now' }}
+        {{ lobbyFilter ? 'No players match your search' : showAll ? 'No players online right now' : 'No available players right now' }}
       </div>
 
       <!-- Player rows -->
@@ -312,7 +328,7 @@ defineExpose({ showLobby })
 
     <!-- Back button (always at bottom) -->
     <button
-      @click="showLobby = false; lobbyFilter = ''"
+      @click="showLobby = false; lobbyFilter = ''; showAll = false"
       class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
     >
       <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
