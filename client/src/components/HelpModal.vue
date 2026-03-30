@@ -11,7 +11,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const activeTab = ref<'sudoku' | 'battle' | 'ai'>('battle')
+const activeTab = ref<'sudoku' | 'battle' | 'ai' | 'rating'>('battle')
 
 // When mode is classic, show only Sudoku Rules tab
 watch(() => props.mode, (newMode) => {
@@ -98,6 +98,15 @@ watch(() => props.isOpen, handleModalChange)
           >
             AI Difficulty
           </button>
+          <button
+            @click="activeTab = 'rating'"
+            class="flex-1 px-4 py-3 text-sm font-semibold transition-colors"
+            :class="activeTab === 'rating'
+              ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+              : 'text-gray-600 hover:text-gray-800'"
+          >
+            Rating
+          </button>
         </div>
 
         <!-- Content -->
@@ -170,6 +179,61 @@ watch(() => props.isOpen, handleModalChange)
           <!-- Standard Sudoku Rules -->
           <div v-if="activeTab === 'sudoku'">
             <SudokuRules :is-open="isOpen" />
+          </div>
+
+          <!-- Rating System -->
+          <div v-if="activeTab === 'rating'" class="space-y-4">
+            <p class="text-gray-700 leading-relaxed">
+              Every player has a <strong>rating</strong> — a number that reflects your skill level based on your results against other players. The better you do against strong opponents, the higher your rating climbs.
+            </p>
+
+            <div class="space-y-3">
+              <div class="flex gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-sm">
+                  ?
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-800 mb-1">How is my rating calculated?</h3>
+                  <p class="text-sm text-gray-600">We use a system called <strong>Glicko-2</strong> — the same method used by chess.com, Lichess, and other competitive platforms. It tracks not just your wins and losses, but also <em>who</em> you played against. Beating a strong player is worth more than beating a beginner.</p>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
+                  ±
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-800 mb-1">What is "Placement"?</h3>
+                  <p class="text-sm text-gray-600">When you're new, the system doesn't have enough data to be confident in your rating yet. During this period you'll see a <strong>Placement</strong> badge instead of a number. After around 15–20 games, your rating will settle and appear on the leaderboard. Your rating can still change — it just becomes more stable over time.</p>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-sm">
+                  ↑
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-800 mb-1">How do I raise my rating?</h3>
+                  <p class="text-sm text-gray-600">Win games — especially against players rated higher than you. Upsets count for more. Playing consistently also helps, as inactive players' ratings become less certain over time.</p>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <div class="flex-shrink-0 w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold text-sm">
+                  ↓
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-800 mb-1">Can my rating drop?</h3>
+                  <p class="text-sm text-gray-600">Yes. Losing to a weaker player will drop your rating more than losing to a stronger one. That's by design — the leaderboard reflects your true long-term skill, not just your best run.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 p-4 bg-purple-50 border-l-4 border-purple-500 rounded">
+              <p class="text-sm text-purple-800">
+                <strong>Why not just use win count?</strong> Win count rewards playing lots of games more than playing well. Someone with 50 wins and 80 losses would rank above someone with 20 wins and 2 losses. Your rating fixes that — it measures skill, not volume.
+              </p>
+            </div>
           </div>
 
           <!-- AI Difficulty Levels -->

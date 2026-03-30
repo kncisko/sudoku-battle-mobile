@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
 import type { Player } from '../../../shared/types.js';
+import { updateRatings, newPlayerRating, type PlayerRating } from './RatingService.js';
 
 interface GameResult {
   player1_id: string;
@@ -101,7 +102,6 @@ export class GameTracker {
         .insert([gameResult]);
 
       if (error) {
-        // Check for specific error types
         if (error.code === '23503') {
           console.error(`[${this.roomCode}] Foreign key constraint violation - player not found in profiles table:`, error.message);
         } else if (error.code === '23505') {
@@ -111,9 +111,61 @@ export class GameTracker {
         }
       } else {
         console.log(`[${this.roomCode}] ✓ Game result tracked successfully`);
+        await this.updateGlickoRatings(winner);
       }
     } catch (error: any) {
       console.error(`[${this.roomCode}] Error tracking game result:`, error.message || error);
+    }
+  }
+
+  /**
+   * Fetch both players' current Glicko-2 ratings, compute new ratings, and write back.
+   */
+  private async updateGlickoRatings(winner: Player | null): Promise<void> {
+    if (!supabase || !this.player1 || !this.player2) return;
+
+    try {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, rating, rd, vol')
+        .in('id', [this.player1.id, this.player2.id]);
+
+      if (error || !profiles || profiles.length !== 2) {
+        console.warn(`[${this.roomCode}] Could not fetch profiles for rating update`);
+        return;
+      }
+
+      const pMap = new Map(profiles.map((p: any) => [p.id, p]));
+      const p1data = pMap.get(this.player1.id);
+      const p2data = pMap.get(this.player2.id);
+
+      const r1: PlayerRating = p1data?.rating != null
+        ? { rating: p1data.rating, rd: p1data.rd, vol: p1data.vol }
+        : newPlayerRating();
+      const r2: PlayerRating = p2data?.rating != null
+        ? { rating: p2data.rating, rd: p2data.rd, vol: p2data.vol }
+        : newPlayerRating();
+
+      const outcome: 1 | 0 | 0.5 =
+        winner?.id === this.player1.id ? 1 :
+        winner?.id === this.player2.id ? 0 : 0.5;
+
+      const { player1: new1, player2: new2 } = updateRatings(r1, r2, outcome);
+
+      await Promise.all([
+        supabase.from('profiles').update({ rating: new1.rating, rd: new1.rd, vol: new1.vol })
+          .eq('id', this.player1.id),
+        supabase.from('profiles').update({ rating: new2.rating, rd: new2.rd, vol: new2.vol })
+          .eq('id', this.player2.id)
+      ]);
+
+      console.log(
+        `[${this.roomCode}] ✓ Ratings updated —`,
+        `${this.player1.name}: ${Math.round(r1.rating)} → ${Math.round(new1.rating)}`,
+        `| ${this.player2.name}: ${Math.round(r2.rating)} → ${Math.round(new2.rating)}`
+      );
+    } catch (err: any) {
+      console.error(`[${this.roomCode}] Error updating Glicko-2 ratings:`, err.message || err);
     }
   }
 

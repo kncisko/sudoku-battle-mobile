@@ -31,47 +31,47 @@ const scrollContainer = ref<HTMLElement | null>(null)
 
 // Fake entries for scroll testing — to disable, change the spread to ([] as typeof _FAKE_ENTRIES)
 const _FAKE_ENTRIES: LeaderboardEntry[] = [
-  { user_id: 'fake-1',  username: 'SudokuMaster',   email: 'fake1@test.com',  total_games: 42, wins: 35, losses: 5,  draws: 2, win_rate: 83.3, total_score: 3780, avg_score: 90.0 },
-  { user_id: 'fake-2',  username: 'PuzzleKing',      email: 'fake2@test.com',  total_games: 38, wins: 30, losses: 6,  draws: 2, win_rate: 78.9, total_score: 3230, avg_score: 85.0 },
-  { user_id: 'fake-3',  username: 'GridWarrior',     email: 'fake3@test.com',  total_games: 55, wins: 40, losses: 12, draws: 3, win_rate: 72.7, total_score: 4400, avg_score: 80.0 },
-  { user_id: 'fake-4',  username: 'NumberNinja',     email: 'fake4@test.com',  total_games: 29, wins: 20, losses: 7,  draws: 2, win_rate: 69.0, total_score: 2320, avg_score: 80.0 },
-  { user_id: 'fake-5',  username: 'LogicLord',       email: 'fake5@test.com',  total_games: 33, wins: 22, losses: 9,  draws: 2, win_rate: 66.7, total_score: 2640, avg_score: 80.0 },
-  { user_id: 'fake-6',  username: 'CellChampion',    email: 'fake6@test.com',  total_games: 47, wins: 30, losses: 14, draws: 3, win_rate: 63.8, total_score: 3760, avg_score: 80.0 },
-  { user_id: 'fake-7',  username: 'BoxBuster',       email: 'fake7@test.com',  total_games: 22, wins: 14, losses: 6,  draws: 2, win_rate: 63.6, total_score: 1760, avg_score: 80.0 },
-  { user_id: 'fake-8',  username: 'RowRuler',        email: 'fake8@test.com',  total_games: 18, wins: 11, losses: 5,  draws: 2, win_rate: 61.1, total_score: 1440, avg_score: 80.0 },
-  { user_id: 'fake-9',  username: 'ColConqueror',    email: 'fake9@test.com',  total_games: 25, wins: 15, losses: 8,  draws: 2, win_rate: 60.0, total_score: 2000, avg_score: 80.0 },
-  { user_id: 'fake-10', username: 'SudokuSlayer',    email: 'fake10@test.com', total_games: 40, wins: 24, losses: 13, draws: 3, win_rate: 60.0, total_score: 3200, avg_score: 80.0 },
-  { user_id: 'fake-11', username: 'GridGladiator',   email: 'fake11@test.com', total_games: 31, wins: 18, losses: 11, draws: 2, win_rate: 58.1, total_score: 2480, avg_score: 80.0 },
-  { user_id: 'fake-12', username: 'PuzzleProdigy',   email: 'fake12@test.com', total_games: 27, wins: 15, losses: 10, draws: 2, win_rate: 55.6, total_score: 2160, avg_score: 80.0 },
-  { user_id: 'fake-13', username: 'NumberCruncher',  email: 'fake13@test.com', total_games: 36, wins: 19, losses: 14, draws: 3, win_rate: 52.8, total_score: 2880, avg_score: 80.0 },
-  { user_id: 'fake-14', username: 'LogicLegend',     email: 'fake14@test.com', total_games: 20, wins: 10, losses: 8,  draws: 2, win_rate: 50.0, total_score: 1600, avg_score: 80.0 },
-  { user_id: 'fake-15', username: 'CellSolver',      email: 'fake15@test.com', total_games: 44, wins: 21, losses: 20, draws: 3, win_rate: 47.7, total_score: 3520, avg_score: 80.0 },
-  { user_id: 'fake-16', username: 'BoxBreaker',      email: 'fake16@test.com', total_games: 15, wins: 7,  losses: 6,  draws: 2, win_rate: 46.7, total_score: 1200, avg_score: 80.0 },
-  { user_id: 'fake-17', username: 'RowRanger',       email: 'fake17@test.com', total_games: 23, wins: 10, losses: 11, draws: 2, win_rate: 43.5, total_score: 1840, avg_score: 80.0 },
-  { user_id: 'fake-18', username: 'ColCrusher',      email: 'fake18@test.com', total_games: 19, wins: 8,  losses: 9,  draws: 2, win_rate: 42.1, total_score: 1520, avg_score: 80.0 },
-  { user_id: 'fake-19', username: 'SudokuSage',      email: 'fake19@test.com', total_games: 28, wins: 11, losses: 15, draws: 2, win_rate: 39.3, total_score: 2240, avg_score: 80.0 },
-  { user_id: 'fake-20', username: 'GridGuru',        email: 'fake20@test.com', total_games: 12, wins: 4,  losses: 7,  draws: 1, win_rate: 33.3, total_score: 960,  avg_score: 80.0 },
-  // Below-the-fold fakes — 0 wins, ranked below real users to test scroll-to-position
-  { user_id: 'fake-21', username: 'NewbieNick',      email: 'fake21@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
-  { user_id: 'fake-22', username: 'LearnerLucy',     email: 'fake22@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
-  { user_id: 'fake-23', username: 'TryingTom',       email: 'fake23@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0 },
-  { user_id: 'fake-24', username: 'PracticePaul',    email: 'fake24@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
-  { user_id: 'fake-25', username: 'BeginnerBeth',    email: 'fake25@test.com', total_games: 7,  wins: 0, losses: 6, draws: 1, win_rate: 0.0, total_score: 350, avg_score: 50.0 },
-  { user_id: 'fake-26', username: 'StartingSam',     email: 'fake26@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
-  { user_id: 'fake-27', username: 'FreshmanFinn',    email: 'fake27@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
-  { user_id: 'fake-28', username: 'RookieRita',      email: 'fake28@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
-  { user_id: 'fake-29', username: 'NoviceNate',      email: 'fake29@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0 },
-  { user_id: 'fake-30', username: 'GettingGood',     email: 'fake30@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
-  { user_id: 'fake-31', username: 'StillLearning',   email: 'fake31@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
-  { user_id: 'fake-32', username: 'AlmostThere',     email: 'fake32@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
-  { user_id: 'fake-33', username: 'WarmingUp',       email: 'fake33@test.com', total_games: 7,  wins: 0, losses: 6, draws: 1, win_rate: 0.0, total_score: 350, avg_score: 50.0 },
-  { user_id: 'fake-34', username: 'JustStarted',     email: 'fake34@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
-  { user_id: 'fake-35', username: 'EarlyDays',       email: 'fake35@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
-  { user_id: 'fake-36', username: 'FindingMyFeet',   email: 'fake36@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
-  { user_id: 'fake-37', username: 'InProgress',      email: 'fake37@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0 },
-  { user_id: 'fake-38', username: 'BuildingSkills',  email: 'fake38@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0 },
-  { user_id: 'fake-39', username: 'GivingItAGo',     email: 'fake39@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0 },
-  { user_id: 'fake-40', username: 'WorkInProgress',  email: 'fake40@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0 },
+  { user_id: 'fake-1',  username: 'SudokuMaster',   email: 'fake1@test.com',  total_games: 42, wins: 35, losses: 5,  draws: 2, win_rate: 83.3, total_score: 3780, avg_score: 90.0, rating: 2050, rd: 65,  vol: 0.06 },
+  { user_id: 'fake-2',  username: 'PuzzleKing',      email: 'fake2@test.com',  total_games: 38, wins: 30, losses: 6,  draws: 2, win_rate: 78.9, total_score: 3230, avg_score: 85.0, rating: 1970, rd: 68,  vol: 0.06 },
+  { user_id: 'fake-3',  username: 'GridWarrior',     email: 'fake3@test.com',  total_games: 55, wins: 40, losses: 12, draws: 3, win_rate: 72.7, total_score: 4400, avg_score: 80.0, rating: 1890, rd: 60,  vol: 0.06 },
+  { user_id: 'fake-4',  username: 'NumberNinja',     email: 'fake4@test.com',  total_games: 29, wins: 20, losses: 7,  draws: 2, win_rate: 69.0, total_score: 2320, avg_score: 80.0, rating: 1820, rd: 72,  vol: 0.06 },
+  { user_id: 'fake-5',  username: 'LogicLord',       email: 'fake5@test.com',  total_games: 33, wins: 22, losses: 9,  draws: 2, win_rate: 66.7, total_score: 2640, avg_score: 80.0, rating: 1760, rd: 70,  vol: 0.06 },
+  { user_id: 'fake-6',  username: 'CellChampion',    email: 'fake6@test.com',  total_games: 47, wins: 30, losses: 14, draws: 3, win_rate: 63.8, total_score: 3760, avg_score: 80.0, rating: 1710, rd: 63,  vol: 0.06 },
+  { user_id: 'fake-7',  username: 'BoxBuster',       email: 'fake7@test.com',  total_games: 22, wins: 14, losses: 6,  draws: 2, win_rate: 63.6, total_score: 1760, avg_score: 80.0, rating: 1670, rd: 78,  vol: 0.06 },
+  { user_id: 'fake-8',  username: 'RowRuler',        email: 'fake8@test.com',  total_games: 18, wins: 11, losses: 5,  draws: 2, win_rate: 61.1, total_score: 1440, avg_score: 80.0, rating: 1640, rd: 82,  vol: 0.06 },
+  { user_id: 'fake-9',  username: 'ColConqueror',    email: 'fake9@test.com',  total_games: 25, wins: 15, losses: 8,  draws: 2, win_rate: 60.0, total_score: 2000, avg_score: 80.0, rating: 1610, rd: 75,  vol: 0.06 },
+  { user_id: 'fake-10', username: 'SudokuSlayer',    email: 'fake10@test.com', total_games: 40, wins: 24, losses: 13, draws: 3, win_rate: 60.0, total_score: 3200, avg_score: 80.0, rating: 1590, rd: 67,  vol: 0.06 },
+  { user_id: 'fake-11', username: 'GridGladiator',   email: 'fake11@test.com', total_games: 31, wins: 18, losses: 11, draws: 2, win_rate: 58.1, total_score: 2480, avg_score: 80.0, rating: 1560, rd: 71,  vol: 0.06 },
+  { user_id: 'fake-12', username: 'PuzzleProdigy',   email: 'fake12@test.com', total_games: 27, wins: 15, losses: 10, draws: 2, win_rate: 55.6, total_score: 2160, avg_score: 80.0, rating: 1540, rd: 74,  vol: 0.06 },
+  { user_id: 'fake-13', username: 'NumberCruncher',  email: 'fake13@test.com', total_games: 36, wins: 19, losses: 14, draws: 3, win_rate: 52.8, total_score: 2880, avg_score: 80.0, rating: 1520, rd: 69,  vol: 0.06 },
+  { user_id: 'fake-14', username: 'LogicLegend',     email: 'fake14@test.com', total_games: 20, wins: 10, losses: 8,  draws: 2, win_rate: 50.0, total_score: 1600, avg_score: 80.0, rating: 1500, rd: 80,  vol: 0.06 },
+  { user_id: 'fake-15', username: 'CellSolver',      email: 'fake15@test.com', total_games: 44, wins: 21, losses: 20, draws: 3, win_rate: 47.7, total_score: 3520, avg_score: 80.0, rating: 1480, rd: 66,  vol: 0.06 },
+  { user_id: 'fake-16', username: 'BoxBreaker',      email: 'fake16@test.com', total_games: 15, wins: 7,  losses: 6,  draws: 2, win_rate: 46.7, total_score: 1200, avg_score: 80.0, rating: 1450, rd: 88,  vol: 0.06 },
+  { user_id: 'fake-17', username: 'RowRanger',       email: 'fake17@test.com', total_games: 23, wins: 10, losses: 11, draws: 2, win_rate: 43.5, total_score: 1840, avg_score: 80.0, rating: 1420, rd: 76,  vol: 0.06 },
+  { user_id: 'fake-18', username: 'ColCrusher',      email: 'fake18@test.com', total_games: 19, wins: 8,  losses: 9,  draws: 2, win_rate: 42.1, total_score: 1520, avg_score: 80.0, rating: 1390, rd: 80,  vol: 0.06 },
+  { user_id: 'fake-19', username: 'SudokuSage',      email: 'fake19@test.com', total_games: 28, wins: 11, losses: 15, draws: 2, win_rate: 39.3, total_score: 2240, avg_score: 80.0, rating: 1360, rd: 73,  vol: 0.06 },
+  { user_id: 'fake-20', username: 'GridGuru',        email: 'fake20@test.com', total_games: 12, wins: 4,  losses: 7,  draws: 1, win_rate: 33.3, total_score: 960,  avg_score: 80.0, rating: 1320, rd: 92,  vol: 0.06 },
+  // Below-the-fold fakes — ranked below real users to test scroll-to-position
+  { user_id: 'fake-21', username: 'NewbieNick',      email: 'fake21@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0, rating: 1200, rd: 180, vol: 0.06 },
+  { user_id: 'fake-22', username: 'LearnerLucy',     email: 'fake22@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0, rating: 1190, rd: 185, vol: 0.06 },
+  { user_id: 'fake-23', username: 'TryingTom',       email: 'fake23@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0, rating: 1180, rd: 175, vol: 0.06 },
+  { user_id: 'fake-24', username: 'PracticePaul',    email: 'fake24@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0, rating: 1170, rd: 200, vol: 0.06 },
+  { user_id: 'fake-25', username: 'BeginnerBeth',    email: 'fake25@test.com', total_games: 7,  wins: 0, losses: 6, draws: 1, win_rate: 0.0, total_score: 350, avg_score: 50.0, rating: 1160, rd: 170, vol: 0.06 },
+  { user_id: 'fake-26', username: 'StartingSam',     email: 'fake26@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0, rating: 1150, rd: 190, vol: 0.06 },
+  { user_id: 'fake-27', username: 'FreshmanFinn',    email: 'fake27@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0, rating: 1140, rd: 180, vol: 0.06 },
+  { user_id: 'fake-28', username: 'RookieRita',      email: 'fake28@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0, rating: 1130, rd: 205, vol: 0.06 },
+  { user_id: 'fake-29', username: 'NoviceNate',      email: 'fake29@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0, rating: 1120, rd: 175, vol: 0.06 },
+  { user_id: 'fake-30', username: 'GettingGood',     email: 'fake30@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0, rating: 1110, rd: 188, vol: 0.06 },
+  { user_id: 'fake-31', username: 'StillLearning',   email: 'fake31@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0, rating: 1100, rd: 182, vol: 0.06 },
+  { user_id: 'fake-32', username: 'AlmostThere',     email: 'fake32@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0, rating: 1090, rd: 200, vol: 0.06 },
+  { user_id: 'fake-33', username: 'WarmingUp',       email: 'fake33@test.com', total_games: 7,  wins: 0, losses: 6, draws: 1, win_rate: 0.0, total_score: 350, avg_score: 50.0, rating: 1080, rd: 172, vol: 0.06 },
+  { user_id: 'fake-34', username: 'JustStarted',     email: 'fake34@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0, rating: 1070, rd: 195, vol: 0.06 },
+  { user_id: 'fake-35', username: 'EarlyDays',       email: 'fake35@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0, rating: 1060, rd: 183, vol: 0.06 },
+  { user_id: 'fake-36', username: 'FindingMyFeet',   email: 'fake36@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0, rating: 1050, rd: 200, vol: 0.06 },
+  { user_id: 'fake-37', username: 'InProgress',      email: 'fake37@test.com', total_games: 6,  wins: 0, losses: 5, draws: 1, win_rate: 0.0, total_score: 300, avg_score: 50.0, rating: 1040, rd: 178, vol: 0.06 },
+  { user_id: 'fake-38', username: 'BuildingSkills',  email: 'fake38@test.com', total_games: 4,  wins: 0, losses: 3, draws: 1, win_rate: 0.0, total_score: 200, avg_score: 50.0, rating: 1030, rd: 192, vol: 0.06 },
+  { user_id: 'fake-39', username: 'GivingItAGo',     email: 'fake39@test.com', total_games: 5,  wins: 0, losses: 4, draws: 1, win_rate: 0.0, total_score: 250, avg_score: 50.0, rating: 1020, rd: 185, vol: 0.06 },
+  { user_id: 'fake-40', username: 'WorkInProgress',  email: 'fake40@test.com', total_games: 3,  wins: 0, losses: 2, draws: 1, win_rate: 0.0, total_score: 150, avg_score: 50.0, rating: 1010, rd: 200, vol: 0.06 },
 ]
 
 // Helper functions for date calculations
@@ -120,7 +120,7 @@ const fetchLeaderboardData = async (): Promise<void> => {
 
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
-    .select('id, username, email')
+    .select('id, username, email, rating, rd, vol')
     .in('id', Array.from(userIds))
 
   if (profileError) throw profileError
@@ -138,6 +138,9 @@ const fetchLeaderboardData = async (): Promise<void> => {
     win_rate: number
     total_score: number
     avg_score: number
+    rating: number | null
+    rd: number | null
+    vol: number | null
   }>()
 
   gameResults.forEach((game: any) => {
@@ -145,7 +148,7 @@ const fetchLeaderboardData = async (): Promise<void> => {
       const p1Id = game.player1_id
       const p1Profile = profileMap.get(p1Id)
       if (p1Profile && !userStats.has(p1Id)) {
-        userStats.set(p1Id, { user_id: p1Id, username: p1Profile.username || null, email: p1Profile.email, total_games: 0, wins: 0, losses: 0, draws: 0, win_rate: 0, total_score: 0, avg_score: 0 })
+        userStats.set(p1Id, { user_id: p1Id, username: p1Profile.username || null, email: p1Profile.email, total_games: 0, wins: 0, losses: 0, draws: 0, win_rate: 0, total_score: 0, avg_score: 0, rating: p1Profile.rating ?? null, rd: p1Profile.rd ?? null, vol: p1Profile.vol ?? null })
       }
       if (userStats.has(p1Id)) {
         const s = userStats.get(p1Id)!
@@ -160,7 +163,7 @@ const fetchLeaderboardData = async (): Promise<void> => {
       const p2Id = game.player2_id
       const p2Profile = profileMap.get(p2Id)
       if (p2Profile && !userStats.has(p2Id)) {
-        userStats.set(p2Id, { user_id: p2Id, username: p2Profile.username || null, email: p2Profile.email, total_games: 0, wins: 0, losses: 0, draws: 0, win_rate: 0, total_score: 0, avg_score: 0 })
+        userStats.set(p2Id, { user_id: p2Id, username: p2Profile.username || null, email: p2Profile.email, total_games: 0, wins: 0, losses: 0, draws: 0, win_rate: 0, total_score: 0, avg_score: 0, rating: p2Profile.rating ?? null, rd: p2Profile.rd ?? null, vol: p2Profile.vol ?? null })
       }
       if (userStats.has(p2Id)) {
         const s = userStats.get(p2Id)!
@@ -180,7 +183,12 @@ const fetchLeaderboardData = async (): Promise<void> => {
   }))
 
   const combined = [...aggregatedStats, ..._FAKE_ENTRIES /*, ...([] as typeof _FAKE_ENTRIES) */]
-  combined.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.win_rate - a.win_rate)
+
+  // Sort by Glicko-2 conservative estimate (rating - 2 * RD).
+  // Falls back to win count for entries without a rating (e.g. fake entries during testing).
+  const conservativeEstimate = (e: LeaderboardEntry) =>
+    e.rating !== null && e.rd !== null ? e.rating - 2 * e.rd : e.wins * 10
+  combined.sort((a, b) => conservativeEstimate(b) - conservativeEstimate(a))
 
   // Capture current user's rank across ALL players before slicing
   myRank.value = null
@@ -256,6 +264,18 @@ const getRankEmoji = (rank: number) => {
   if (rank === 3) return '🥉'
   return `${rank}.`
 }
+
+// RD threshold above which a player is still in placement (not enough data)
+const PLACEMENT_RD = 150
+
+const isPlacement = (entry: LeaderboardEntry) =>
+  entry.rd === null || entry.rd > PLACEMENT_RD
+
+// Conservative estimate: what the leaderboard sorts by and displays as rating
+const displayRating = (entry: LeaderboardEntry): number =>
+  entry.rating !== null && entry.rd !== null
+    ? Math.max(0, Math.round(entry.rating - 2 * entry.rd))
+    : 0
 
 const closeModal = () => {
   emit('close')
@@ -348,7 +368,7 @@ const closeModal = () => {
 
               <!-- Name + stats -->
               <div class="flex-1 min-w-0">
-                <!-- Line 1: name + win rate -->
+                <!-- Line 1: name + rating -->
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-1.5 min-w-0">
                     <p class="font-semibold text-gray-800 truncate">
@@ -356,12 +376,14 @@ const closeModal = () => {
                     </p>
                     <span v-if="entry.user_id === currentUserId" class="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">You</span>
                   </div>
-                  <p class="text-sm font-bold text-purple-600 flex-shrink-0">{{ entry.win_rate.toFixed(1) }}%</p>
+                  <span v-if="isPlacement(entry)" class="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Placement</span>
+                  <span v-else class="text-sm font-bold text-purple-600 flex-shrink-0">{{ displayRating(entry) }}</span>
                 </div>
-                <!-- Line 2: wins + games -->
+                <!-- Line 2: wins + games + win rate -->
                 <div class="flex items-center gap-3 mt-0.5">
                   <span class="text-xs text-gray-500"><span class="font-semibold text-green-600">{{ entry.wins }}</span> wins</span>
                   <span class="text-xs text-gray-500"><span class="font-semibold text-blue-600">{{ entry.total_games }}</span> games</span>
+                  <span class="text-xs text-gray-400">{{ entry.win_rate.toFixed(0) }}%</span>
                 </div>
               </div>
             </div>
@@ -384,11 +406,13 @@ const closeModal = () => {
                   </p>
                   <span class="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">You</span>
                 </div>
-                <p class="text-sm font-bold text-purple-600 flex-shrink-0">{{ myRankEntry.win_rate.toFixed(1) }}%</p>
+                <span v-if="isPlacement(myRankEntry)" class="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Placement</span>
+                <span v-else class="text-sm font-bold text-purple-600 flex-shrink-0">{{ displayRating(myRankEntry) }}</span>
               </div>
               <div class="flex items-center gap-3 mt-0.5">
                 <span class="text-xs text-gray-500"><span class="font-semibold text-green-600">{{ myRankEntry.wins }}</span> wins</span>
                 <span class="text-xs text-gray-500"><span class="font-semibold text-blue-600">{{ myRankEntry.total_games }}</span> games</span>
+                <span class="text-xs text-gray-400">{{ myRankEntry.win_rate.toFixed(0) }}%</span>
               </div>
             </div>
           </div>

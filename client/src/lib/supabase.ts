@@ -53,4 +53,8 @@ export interface LeaderboardEntry {
   win_rate: number
   total_score: number
   avg_score: number
+  // Glicko-2 rating fields (null = not yet rated / placement)
+  rating: number | null
+  rd: number | null
+  vol: number | null
 }
