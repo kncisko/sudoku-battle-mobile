@@ -12,6 +12,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   close: []
+  showRatingHelp: []
 }>()
 
 // ── Configurable cap ──────────────────────────────────────────────────────
@@ -182,7 +183,7 @@ const fetchLeaderboardData = async (): Promise<void> => {
     avg_score: stats.total_games > 0 ? Math.round((stats.total_score / stats.total_games) * 100) / 100 : 0
   }))
 
-  const combined = [...aggregatedStats, ..._FAKE_ENTRIES /*, ...([] as typeof _FAKE_ENTRIES) */]
+  const combined = [...aggregatedStats, ...([] as typeof _FAKE_ENTRIES) /*, ..._FAKE_ENTRIES */]
 
   // Sort by Glicko-2 conservative estimate (rating - 2 * RD).
   // Falls back to win count for entries without a rating (e.g. fake entries during testing).
@@ -296,12 +297,19 @@ const closeModal = () => {
             <h2 class="text-2xl font-bold text-gray-800">🏆 Leaderboard</h2>
             <p class="text-sm text-gray-600 mt-1">Top Players - PvP Games Only</p>
           </div>
-          <button
-            @click="closeModal"
-            class="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <span class="text-2xl">×</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="$emit('showRatingHelp')"
+              class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 hover:bg-purple-200 transition-colors flex items-center justify-center font-bold text-sm"
+              title="How does rating work?"
+            >?</button>
+            <button
+              @click="closeModal"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <span class="text-2xl">×</span>
+            </button>
+          </div>
         </div>
 
         <!-- Time Filter Buttons -->

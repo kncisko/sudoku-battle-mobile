@@ -32,6 +32,7 @@ const showClassicDifficulty = ref(false)
 
 // Help modal state
 const showHelp = ref(false)
+const helpDefaultTab = ref<'sudoku' | 'battle' | 'ai' | 'rating' | undefined>(undefined)
 
 // Auth modal states
 const showAuthModal = ref(false)
@@ -1247,7 +1248,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <HelpModal
     :is-open="showHelp"
     :mode="gameMode === 'classic' || showClassicDifficulty ? 'classic' : 'battle'"
-    @close="showHelp = false"
+    :default-tab="helpDefaultTab"
+    @close="showHelp = false; helpDefaultTab = undefined"
   />
 
   <!-- Auth Modal -->
@@ -1264,6 +1266,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     :is-open="showLeaderboard"
     :current-user-id="auth.user.value?.id"
     @close="showLeaderboard = false"
+    @show-rating-help="showLeaderboard = false; helpDefaultTab = 'rating'; showHelp = true"
   />
 </template>
 

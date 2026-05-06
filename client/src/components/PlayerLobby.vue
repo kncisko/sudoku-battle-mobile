@@ -286,7 +286,7 @@ defineExpose({ showLobby, showAll })
             <span class="w-2 h-2 rounded-full flex-shrink-0" :class="statusDot[player.status]"></span>
             <span class="text-xs" :class="statusText[player.status]">{{ statusLabel[player.status] }}</span>
             <span v-if="player.totalGames > 0" class="text-xs text-gray-400 ml-1">
-              · {{ Math.round(player.winRate * 100) }}% ({{ player.totalGames }})
+              · {{ (player.winRate * 100).toFixed(1) }}% ({{ player.totalGames }})
             </span>
           </div>
         </div>

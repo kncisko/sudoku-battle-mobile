@@ -5,6 +5,7 @@ import SudokuRules from './SudokuRules.vue'
 const props = defineProps<{
   isOpen: boolean
   mode?: 'battle' | 'classic' // Default to 'battle' for backward compatibility
+  defaultTab?: 'sudoku' | 'battle' | 'ai' | 'rating'
 }>()
 
 const emit = defineEmits<{
@@ -18,9 +19,13 @@ watch(() => props.mode, (newMode) => {
   if (newMode === 'classic') {
     activeTab.value = 'sudoku'
   } else {
-    activeTab.value = 'battle'
+    activeTab.value = props.defaultTab ?? 'battle'
   }
 }, { immediate: true })
+
+watch(() => props.defaultTab, (tab) => {
+  if (tab) activeTab.value = tab
+})
 
 const closeModal = () => {
   emit('close')

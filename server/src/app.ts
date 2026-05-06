@@ -68,7 +68,7 @@ async function fetchPlayerRating(userId: string): Promise<{ winRate: number; tot
       .select('win_rate, total_games')
       .eq('user_id', userId)
       .single();
-    return { winRate: data?.win_rate ?? 0, totalGames: data?.total_games ?? 0 };
+    return { winRate: (data?.win_rate ?? 0) / 100, totalGames: data?.total_games ?? 0 };
   } catch {
     return { winRate: 0, totalGames: 0 };
   }
