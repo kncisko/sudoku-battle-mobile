@@ -359,11 +359,15 @@ watch(showPlayerLobby, (showing) => {
   }
 })
 
-// Also join lobby if the user signs in while already on the lobby screen
+// Join lobby on sign-in, leave on sign-out
 watch(() => auth.user.value, (user) => {
-  if (user && showPlayerLobby.value) {
+  if (user && gameModeSelected.value && gameMode.value === 'online' && !isPlaying.value && !isFinished.value) {
+    showPlayerLobby.value = true
     const name = auth.profile.value?.username || user.email || 'Player'
     onlineGame.joinLobby(user.id, name)
+  } else if (!user) {
+    onlineGame.leaveLobby()
+    showPlayerLobby.value = false
   }
 })
 
@@ -412,9 +416,24 @@ const handleVerifyCode = async (email: string, code: string) => {
 }
 
 const handleSignOut = async () => {
+  onlineGame.leaveLobby()
+  showPlayerLobby.value = false
   await auth.signOut()
   showProfileDropdown.value = false
   userStats.stats.value = null
+}
+
+const avatarInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+
+const avatarColor = (name: string) => {
+  const colors = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#7C2D12', '#4F46E5']
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
 }
 
 const handleUpdateUsername = async (username: string) => {
@@ -809,10 +828,13 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     <button
       v-if="auth.isAuthenticated.value"
       @click="showProfileDropdown = !showProfileDropdown"
-      class="bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+      class="bg-white/90 hover:bg-white font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
       title="Profile"
     >
-      <span class="text-2xl">👤</span>
+      <span
+        class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-sm"
+        :style="{ background: avatarColor(auth.profile.value?.username || auth.user.value?.email || '?') }"
+      >{{ avatarInitials(auth.profile.value?.username || auth.user.value?.email || '?') }}</span>
     </button>
     <button
       v-else
@@ -850,7 +872,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     v-if="showProfileDropdown && auth.profile.value"
     class="fixed inset-0 z-[70]"
   >
-    <div class="absolute inset-0" @click="showProfileDropdown = false"></div>
+    <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="showProfileDropdown = false"></div>
     <div class="absolute top-[118px] left-[5vw] right-[5vw]">
       <UserProfile
         :profile="auth.profile.value"

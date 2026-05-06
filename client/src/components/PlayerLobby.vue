@@ -302,11 +302,17 @@ defineExpose({ showLobby, showAll })
       </div>
     </div>
 
+    <!-- Logged-in banner -->
+    <div v-if="authenticatedUserId && authenticatedUsername && isConnected" class="p-3 bg-green-50 border-l-4 border-green-400 rounded-lg flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
+      <p class="text-sm text-green-800">Playing as <span class="font-semibold">{{ authenticatedUsername }}</span></p>
+    </div>
+
     <!-- Sign-in banner -->
     <div v-if="!authenticatedUserId && isConnected" class="p-3 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
       <p class="text-sm text-blue-800">
         <button @click="$emit('showAuth')" class="font-semibold underline">Sign in</button>
-        to appear in the lobby and challenge players.
+        to appear in the lobby, challenge players, and track your rating progress.
       </p>
     </div>
 
