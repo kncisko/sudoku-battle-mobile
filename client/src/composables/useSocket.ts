@@ -508,8 +508,8 @@ export function useSocket() {
 
     // Lobby update
     socket.value.on('lobby_update', (data: { players: LobbyPlayerPublic[]; total: number }) => {
-      lobbyPlayers.value = data.players
-      lobbyTotal.value = data.total
+      lobbyPlayers.value = data.players.filter(p => p.userId !== lobbyUserId.value)
+      lobbyTotal.value = lobbyUserId.value ? data.total - 1 : data.total
     })
 
     // Lobby error (server rejected join)
