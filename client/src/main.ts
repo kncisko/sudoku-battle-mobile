@@ -9,7 +9,7 @@ import { Capacitor } from '@capacitor/core'
 if (Capacitor.isNativePlatform()) {
   // Configure status bar
   StatusBar.setStyle({ style: Style.Dark }).catch(() => {})
-  StatusBar.setBackgroundColor({ color: '#1a1a1a' }).catch(() => {})
+  StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {})
 
   // Hide splash screen after app is loaded
   SplashScreen.hide().catch(() => {})

@@ -5,6 +5,7 @@ import { useOfflineGame } from './composables/useOfflineGame'
 import { useClassicGame } from './composables/useClassicGame'
 import { useAuth } from './composables/useAuth'
 import { useStats } from './composables/useStats'
+import { useTheme } from './composables/useTheme'
 import { initializeTickSound } from './composables/useTickSound'
 import SudokuBoard from './components/SudokuBoard.vue'
 import GameLobby from './components/GameLobby.vue'
@@ -44,6 +45,10 @@ const authModalRef = ref<InstanceType<typeof AuthModal> | null>(null)
 const auth = useAuth()
 const userStats = useStats()
 
+// Theme
+const { currentTheme, setTheme, loadTheme, THEMES } = useTheme()
+const showThemePicker = ref(false)
+
 // Game mode: 'online', 'offline', or 'classic'
 const gameMode = ref<'online' | 'offline' | 'classic'>('online')
 
@@ -69,6 +74,9 @@ const SPLASH_AUDIO_PATH = 'public/assets/puzzled_groove.mp3'
 const GAME_AUDIO_PATH = 'public/assets/sudoku_serenade.mp3'
 
 onMounted(async () => {
+  // Load saved color theme
+  await loadTheme()
+
   // Check if there's a saved game to restore
   try {
     const savedGame = localStorage.getItem('sudoku_battle_game_state')
@@ -818,7 +826,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     <!-- Leaderboard Button -->
     <button
       @click="showLeaderboard = true"
-      class="bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+      class="font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+      style="background-color: var(--color-surface)"
       title="Leaderboard"
     >
       <span class="text-2xl">🏆</span>
@@ -828,7 +837,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     <button
       v-if="auth.isAuthenticated.value"
       @click="showProfileDropdown = !showProfileDropdown"
-      class="bg-white/90 hover:bg-white font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+      class="font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+      style="background-color: var(--color-surface)"
       title="Profile"
     >
       <span
@@ -839,7 +849,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     <button
       v-else
       @click="showAuthModal = true"
-      class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-full shadow-lg transition-all hover:scale-105 text-sm"
+      class="text-white font-semibold px-4 py-2 rounded-full shadow-lg transition-all hover:scale-105 text-sm"
+      style="background-color: var(--color-primary)"
       title="Sign In"
     >
       Sign In
@@ -850,22 +861,65 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <button
     v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
     @click="showHelp = true"
-    class="fixed top-[54px] right-20 z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    class="fixed top-[54px] right-[108px] z-50 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    style="background-color: var(--color-surface)"
     title="Help & Rules"
   >
     <span class="text-2xl">❓</span>
+  </button>
+
+  <!-- Theme Picker Button (only show on home page) -->
+  <button
+    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
+    @click="showThemePicker = !showThemePicker"
+    class="fixed top-[54px] right-[64px] z-50 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    style="background-color: var(--color-surface)"
+    title="Change Theme"
+  >
+    <span class="text-2xl">🎨</span>
   </button>
 
   <!-- Music Control Button (only show on home page, not during Classic game) -->
   <button
     v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
     @click="toggleMute"
-    class="fixed top-[54px] right-[19px] z-50 bg-white/90 hover:bg-white text-gray-800 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    class="fixed top-[54px] right-[19px] z-50 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+    style="background-color: var(--color-surface)"
     :title="isMuted ? 'Unmute Music' : 'Mute Music'"
   >
     <span v-if="isMuted" class="text-2xl">🔇</span>
     <span v-else class="text-2xl">🔊</span>
   </button>
+
+  <!-- Theme Picker Panel -->
+  <div
+    v-if="showThemePicker"
+    class="fixed inset-0 z-[75]"
+  >
+    <div class="absolute inset-0 bg-black/40" @click="showThemePicker = false"></div>
+    <div class="absolute top-[118px] right-[5vw] rounded-xl shadow-2xl p-4 w-64" style="background-color: var(--color-surface)">
+      <h3 class="text-sm font-bold mb-3" style="color: var(--color-text)">Choose Theme</h3>
+      <div class="space-y-2">
+        <button
+          v-for="theme in THEMES"
+          :key="theme.name"
+          @click="setTheme(theme.name); showThemePicker = false"
+          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all"
+          :style="currentTheme === theme.name ? 'background-color: var(--color-primary); color: white' : 'background-color: var(--color-base); color: var(--color-text)'"
+        >
+          <!-- Color swatches -->
+          <div class="flex gap-1 flex-shrink-0">
+            <span class="w-3 h-3 rounded-full border border-white/20" :style="{ backgroundColor: theme.primary }"></span>
+            <span class="w-3 h-3 rounded-full border border-white/20" :style="{ backgroundColor: theme.secondary }"></span>
+            <span class="w-3 h-3 rounded-full border border-white/20" :style="{ backgroundColor: theme.accent }"></span>
+            <span class="w-3 h-3 rounded-full border border-white/20" :style="{ backgroundColor: theme.base }"></span>
+          </div>
+          <span class="text-xs font-semibold">{{ theme.label }}</span>
+          <span v-if="currentTheme === theme.name" class="ml-auto text-xs">✓</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Profile Dropdown -->
   <div
@@ -885,8 +939,12 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   </div>
 
   <!-- Main Game (only show when mode is selected) -->
-  <div v-if="!showSplash && gameModeSelected" class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center px-[5vw] py-4 overflow-y-hidden">
-    <div class="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full relative z-[60] game-panel-container">
+  <div v-if="!showSplash && gameModeSelected" class="h-screen flex items-center justify-center px-[5vw] py-4 overflow-y-hidden" style="background-color: var(--color-base)">
+    <div
+      class="rounded-lg p-6 max-w-2xl w-full relative z-[60] game-panel-container"
+      :class="showPlayerLobby && !isPlaying && !isFinished ? '' : 'shadow-2xl'"
+      :style="showPlayerLobby && !isPlaying && !isFinished ? 'background: transparent' : 'background-color: var(--color-surface)'"
+    >
       <!-- Transparent overlay to block card interactions when a panel is open -->
       <div v-if="showLeaderboard || showProfileDropdown || showHelp" class="absolute inset-0 rounded-lg z-10"></div>
       <!-- Connection Status - top left during gameplay only (Battle mode only) -->
@@ -917,7 +975,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
       <button
         v-if="isPlaying || classicGame.isPlaying.value"
         @click="toggleMute"
-        class="absolute top-[30px] right-16 w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+        class="absolute top-[30px] right-16 w-10 h-10 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+        style="background-color: var(--color-primary)"
         :title="isMuted ? 'Unmute Music' : 'Mute Music'"
       >
         <span v-if="isMuted" class="text-xl">🔇</span>
@@ -934,8 +993,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
         ✕
       </button>
 
-      <!-- Title - only show when NOT playing -->
-      <h1 v-if="!(isPlaying || classicGame.isPlaying.value)" class="text-3xl font-bold text-gray-800 mb-2 text-center">
+      <!-- Title - only show when NOT playing and NOT in player lobby (PlayerLobby has its own title) -->
+      <h1 v-if="!(isPlaying || classicGame.isPlaying.value) && !showPlayerLobby" class="text-3xl font-bold mb-2 text-center" style="color: var(--color-text)">
         {{ gameMode === 'classic' ? 'Classic Sudoku' : 'Sudoku Battle' }}
       </h1>
 
@@ -943,14 +1002,14 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
         <!-- Classic Sudoku Game View -->
         <div v-if="gameMode === 'classic' && (classicGame.isPlaying.value || classicGame.isCompleted.value)">
           <!-- Game Stats -->
-          <div v-if="!classicGame.isCompleted.value" class="flex justify-center items-center mb-4 p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg gap-8">
+          <div v-if="!classicGame.isCompleted.value" class="flex justify-center items-center mb-4 p-4 rounded-lg gap-8" style="background-color: var(--color-base)">
             <div class="text-center">
-              <p class="text-xs font-semibold text-gray-600 uppercase">Difficulty</p>
-              <p class="text-lg font-bold text-purple-700 capitalize">{{ classicGame.difficulty.value }}</p>
+              <p class="text-xs font-semibold uppercase" style="color: var(--color-text); opacity: 0.6">Difficulty</p>
+              <p class="text-lg font-bold capitalize" style="color: var(--color-primary)">{{ classicGame.difficulty.value }}</p>
             </div>
             <div class="text-center">
-              <p class="text-xs font-semibold text-gray-600 uppercase">Time</p>
-              <p class="text-lg font-bold text-blue-700">{{ Math.floor(classicGame.elapsedTime.value / 60) }}:{{ (classicGame.elapsedTime.value % 60).toString().padStart(2, '0') }}</p>
+              <p class="text-xs font-semibold uppercase" style="color: var(--color-text); opacity: 0.6">Time</p>
+              <p class="text-lg font-bold" style="color: var(--color-accent)">{{ Math.floor(classicGame.elapsedTime.value / 60) }}:{{ (classicGame.elapsedTime.value % 60).toString().padStart(2, '0') }}</p>
             </div>
           </div>
 
@@ -990,7 +1049,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
 
               <button
                 @click="handleLeaveGame"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
+                class="text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
+                style="background-color: var(--color-primary)"
               >
                 Play Again
               </button>
@@ -1236,7 +1296,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
                 <div class="flex justify-center gap-4">
                   <div v-for="player in players" :key="player.id" class="text-center">
                     <p class="font-semibold">{{ player.name }}</p>
-                    <p class="text-2xl font-bold text-blue-600">{{ scores[player.id] || 0 }}</p>
+                    <p class="text-2xl font-bold" style="color: var(--color-primary)">{{ scores[player.id] || 0 }}</p>
                   </div>
                 </div>
               </div>
@@ -1245,7 +1305,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
               <div class="text-center mt-4">
                 <button
                   @click="handleEndGame"
-                  class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
+                  class="text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg"
+                  style="background-color: var(--color-primary)"
                 >
                   {{ gameMode === 'online' ? 'Return to Lobby' : 'End Game' }}
                 </button>

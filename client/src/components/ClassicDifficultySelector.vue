@@ -1,68 +1,50 @@
 <template>
-  <div class="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-    <div class="flex flex-col gap-6 items-center">
-      <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 text-center drop-shadow-lg">
-        Choose Difficulty
-      </h1>
+  <div class="h-screen flex items-center justify-center p-4" style="background-color: var(--color-base)">
+    <div class="flex flex-col gap-4 w-full max-w-sm">
+      <h2 class="text-3xl font-bold mb-2 text-center drop-shadow-lg" style="color: var(--color-text)">Classic Sudoku</h2>
 
-      <!-- Easy Button -->
-      <button
-        @click="$emit('select-difficulty', 'easy')"
-        class="difficulty-btn easy-mode"
-      >
-        <span class="text-3xl mb-2">😊</span>
-        <span class="text-2xl font-bold">Easy</span>
-        <span class="text-sm opacity-90">Perfect for beginners</span>
+      <button @click="$emit('select-difficulty', 'easy')" class="menu-btn" style="background-color: var(--color-primary)">
+        <span class="text-3xl flex-shrink-0">😊</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Easy</span>
+          <span class="text-sm opacity-80">Perfect for beginners</span>
+        </div>
       </button>
 
-      <!-- Medium Button -->
-      <button
-        @click="$emit('select-difficulty', 'medium')"
-        class="difficulty-btn medium-mode"
-      >
-        <span class="text-3xl mb-2">🎯</span>
-        <span class="text-2xl font-bold">Medium</span>
-        <span class="text-sm opacity-90">A balanced challenge</span>
+      <button @click="$emit('select-difficulty', 'medium')" class="menu-btn" style="background-color: var(--color-secondary)">
+        <span class="text-3xl flex-shrink-0">🎯</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Medium</span>
+          <span class="text-sm opacity-80">A balanced challenge</span>
+        </div>
       </button>
 
-      <!-- Hard Button -->
-      <button
-        @click="$emit('select-difficulty', 'hard')"
-        class="difficulty-btn hard-mode"
-      >
-        <span class="text-3xl mb-2">🔥</span>
-        <span class="text-2xl font-bold">Hard</span>
-        <span class="text-sm opacity-90">For puzzle masters</span>
+      <button @click="$emit('select-difficulty', 'hard')" class="menu-btn" style="background-color: var(--color-accent)">
+        <span class="text-3xl flex-shrink-0">🔥</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Hard</span>
+          <span class="text-sm opacity-80">For puzzle masters</span>
+        </div>
       </button>
 
-      <!-- Bottom buttons row -->
-      <div class="flex gap-3 w-full justify-center">
-        <button
-          @click="$emit('back')"
-          class="difficulty-btn back-mode flex-1"
-          style="max-width: 155px;"
-        >
-          <div class="flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" height="28" viewBox="0 -960 960 960" width="28" fill="currentColor">
-              <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
-            </svg>
-            <span class="text-xl font-bold">Back</span>
-          </div>
-        </button>
+      <button @click="$emit('show-help')" class="menu-btn" style="background-color: var(--color-surface)">
+        <span class="text-3xl flex-shrink-0">❓</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Rules</span>
+          <span class="text-sm opacity-80">How to play Classic Sudoku</span>
+        </div>
+      </button>
 
-        <button
-          @click="$emit('show-help')"
-          class="difficulty-btn help-mode flex-1"
-          style="max-width: 155px;"
-        >
-          <div class="flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor">
-              <path d="M424-320q0-81 14.5-116.5T500-514q41-36 62.5-62.5T584-637q0-41-27.5-68T480-732q-51 0-77.5 31T365-638l-103-44q21-64 77-111t141-47q105 0 161.5 58.5T698-641q0 50-21.5 85.5T609-475q-49 47-59.5 71.5T540-320H424Zm56 240q-33 0-56.5-23.5T400-160q0-33 23.5-56.5T480-240q33 0 56.5 23.5T560-160q0 33-23.5 56.5T480-80Z"/>
-            </svg>
-            <span class="text-xl font-bold">Rules</span>
-          </div>
-        </button>
-      </div>
+      <button
+        @click="$emit('back')"
+        class="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 mt-1"
+        style="background-color: var(--color-surface); color: var(--color-text); opacity: 0.7"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
+          <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
+        </svg>
+        Back to Game Selection
+      </button>
     </div>
   </div>
 </template>
@@ -76,92 +58,31 @@ defineEmits<{
 </script>
 
 <style scoped>
-.difficulty-btn {
+.menu-btn {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  width: 320px;
-  min-height: 140px;
-  padding: 1.5rem;
-  border-radius: 1.5rem;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border-radius: 1.25rem;
   font-weight: 600;
   transition: all 0.3s ease;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   border: none;
-}
-
-.difficulty-btn:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
-}
-
-.difficulty-btn:active {
-  transform: translateY(-4px);
-}
-
-.easy-mode {
-  background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
-  color: #1a5f3e;
-}
-
-.easy-mode:hover {
-  background: linear-gradient(135deg, #96ffc0 0%, #a5ddff 100%);
-}
-
-.medium-mode {
-  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-  color: #7c3a0f;
-}
-
-.medium-mode:hover {
-  background: linear-gradient(135deg, #fff5e5 0%, #ffc5af 100%);
-}
-
-.hard-mode {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
   color: white;
 }
 
-.hard-mode:hover {
-  background: linear-gradient(135deg, #ff7c7c 0%, #ff6a7f 100%);
+.menu-btn:active {
+  filter: brightness(0.9);
 }
 
-.back-mode {
-  background: linear-gradient(135deg, #a8a8a8 0%, #8a8a8a 100%);
-  color: white;
-  min-height: 80px;
-}
-
-.back-mode:hover {
-  background: linear-gradient(135deg, #b8b8b8 0%, #9a9a9a 100%);
-}
-
-.help-mode {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  color: white;
-  min-height: 80px;
-}
-
-.help-mode:hover {
-  background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
-}
-
-/* Responsive sizing for mobile */
-@media (max-width: 640px) {
-  .difficulty-btn {
-    width: 280px;
-    min-height: 120px;
-    padding: 1.25rem;
-  }
-
-  h1 {
-    font-size: 2rem;
-  }
-
-  .difficulty-btn span:nth-child(2) {
-    font-size: 1.5rem;
+@media (hover: hover) {
+  .menu-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
   }
 }
 </style>

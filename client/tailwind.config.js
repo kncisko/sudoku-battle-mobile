@@ -24,7 +24,16 @@ export default {
     'border-orange-500', 'border-emerald-500', 'border-rose-500', 'border-amber-500',
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'theme-base':      'var(--color-base)',
+        'theme-surface':   'var(--color-surface)',
+        'theme-primary':   'var(--color-primary)',
+        'theme-secondary': 'var(--color-secondary)',
+        'theme-accent':    'var(--color-accent)',
+        'theme-text':      'var(--color-text)',
+      },
+    },
   },
   plugins: [],
 }

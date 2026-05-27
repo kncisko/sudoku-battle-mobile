@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme tokens ─────────────────────────────────────────────────────────── */
+:root,
+[data-theme="slate-violet"] {
+  --color-base:      #0f172a;
+  --color-surface:   #1e293b;
+  --color-primary:   #8b5cf6;
+  --color-secondary: #22d3ee;
+  --color-accent:    #f59e0b;
+  --color-text:      #e2e8f0;
+}
+
+[data-theme="charcoal-cyan"] {
+  --color-base:      #111827;
+  --color-surface:   #1f2937;
+  --color-primary:   #06b6d4;
+  --color-secondary: #fb923c;
+  --color-accent:    #a78bfa;
+  --color-text:      #f3f4f6;
+}
+
+[data-theme="deep-blue-gold"] {
+  --color-base:      #0c1445;
+  --color-surface:   #162060;
+  --color-primary:   #fbbf24;
+  --color-secondary: #c084fc;
+  --color-accent:    #60a5fa;
+  --color-text:      #f8fafc;
+}
+
+[data-theme="midnight-rose"] {
+  --color-base:      #09090b;
+  --color-surface:   #18181b;
+  --color-primary:   #f43f5e;
+  --color-secondary: #38bdf8;
+  --color-accent:    #818cf8;
+  --color-text:      #fafafa;
+}
+/* ─────────────────────────────────────────────────────────────────────────── */
+
 body {
   margin: 0;
   padding: 0;
@@ -10,4 +49,6 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-base);
+  color: var(--color-text);
 }

@@ -208,10 +208,10 @@ const statusDot: Record<string, string> = {
 }
 
 const statusText: Record<string, string> = {
-  available: 'text-green-700',
-  idle: 'text-yellow-700',
-  pending: 'text-orange-700',
-  in_game: 'text-gray-500',
+  available: 'text-green-400',
+  idle: 'text-yellow-400',
+  pending: 'text-orange-400',
+  in_game: 'text-gray-400',
 }
 
 defineExpose({ showLobby, showAll })
@@ -222,21 +222,21 @@ defineExpose({ showLobby, showAll })
   <div v-if="showLobby" class="w-full flex flex-col gap-3" style="height: 55vh;">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h2 class="text-xl font-bold text-gray-800">Online Players</h2>
-      <span v-if="lobbyTotal > 0" class="text-xs text-gray-400">{{ lobbyTotal }} online</span>
+      <h2 class="text-xl font-bold" style="color: var(--color-text)">Online Players</h2>
+      <span v-if="lobbyTotal > 0" class="text-xs" style="color: var(--color-text); opacity: 0.5">{{ lobbyTotal }} online</span>
     </div>
 
     <!-- Available / All toggle -->
-    <div class="flex rounded-lg overflow-hidden border border-gray-200 w-full">
+    <div class="flex rounded-lg overflow-hidden border w-full" style="border-color: var(--color-primary); opacity: 0.6">
       <button
         @click="showAll = false"
         class="flex-1 py-1 text-xs font-semibold transition-colors"
-        :class="!showAll ? 'bg-blue-500 text-white' : 'bg-white text-gray-500'"
+        :style="!showAll ? 'background-color: var(--color-primary); color: white' : 'background: transparent; color: var(--color-text)'"
       >Available</button>
       <button
         @click="showAll = true"
-        class="flex-1 py-1 text-xs font-semibold transition-colors border-l border-gray-200"
-        :class="showAll ? 'bg-blue-500 text-white' : 'bg-white text-gray-500'"
+        class="flex-1 py-1 text-xs font-semibold transition-colors border-l"
+        :style="showAll ? 'background-color: var(--color-primary); color: white; border-color: var(--color-primary)' : 'background: transparent; color: var(--color-text); border-color: var(--color-primary)'"
       >All</button>
     </div>
 
@@ -246,21 +246,22 @@ defineExpose({ showLobby, showAll })
       @input="lobbyFilter = ($event.target as HTMLInputElement).value"
       type="text"
       placeholder="Search players..."
-      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+      style="background-color: var(--color-base); color: var(--color-text); border: 1px solid var(--color-primary); --tw-ring-color: var(--color-primary)"
       autocomplete="off"
       autocorrect="off"
       spellcheck="false"
     />
 
     <!-- Scrollable player list -->
-    <div class="rounded-lg border border-gray-200 overflow-y-auto flex-1">
+    <div class="rounded-lg overflow-y-auto flex-1" style="border: 1px solid var(--color-primary); opacity: 0.9">
       <!-- Not connected -->
-      <div v-if="!isConnected" class="p-4 text-center text-orange-600 text-sm font-semibold">
+      <div v-if="!isConnected" class="p-4 text-center text-orange-400 text-sm font-semibold">
         No connection — lobby unavailable
       </div>
 
       <!-- Empty state -->
-      <div v-else-if="filteredPlayers.length === 0" class="p-6 text-center text-gray-400 text-sm">
+      <div v-else-if="filteredPlayers.length === 0" class="p-6 text-center text-sm" style="color: var(--color-text); opacity: 0.5">
         {{ lobbyFilter ? 'No players match your search' : showAll ? 'No players online right now' : 'No available players right now' }}
       </div>
 
@@ -268,24 +269,25 @@ defineExpose({ showLobby, showAll })
       <div
         v-for="player in filteredPlayers"
         :key="player.userId"
-        class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0"
-        :class="player.userId === authenticatedUserId ? 'bg-blue-50' : 'bg-white'"
+        class="flex items-center gap-3 px-4 py-3 border-b last:border-b-0"
+        style="border-color: var(--color-primary); border-opacity: 0.2; background: transparent"
       >
         <!-- Avatar -->
-        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+             style="background-color: var(--color-primary)">
           {{ player.name.charAt(0).toUpperCase() }}
         </div>
 
         <!-- Name + status -->
         <div class="flex-1 min-w-0">
-          <p class="font-semibold text-gray-800 text-sm truncate">
+          <p class="font-semibold text-sm truncate" style="color: var(--color-text)">
             {{ player.name }}
-            <span v-if="player.userId === authenticatedUserId" class="text-xs font-normal text-blue-500"> (you)</span>
+            <span v-if="player.userId === authenticatedUserId" class="text-xs font-normal" style="color: var(--color-accent)"> (you)</span>
           </p>
           <div class="flex items-center gap-1 mt-0.5">
             <span class="w-2 h-2 rounded-full flex-shrink-0" :class="statusDot[player.status]"></span>
             <span class="text-xs" :class="statusText[player.status]">{{ statusLabel[player.status] }}</span>
-            <span v-if="player.totalGames > 0" class="text-xs text-gray-400 ml-1">
+            <span v-if="player.totalGames > 0" class="text-xs ml-1" style="color: var(--color-text); opacity: 0.5">
               · {{ (player.winRate * 100).toFixed(1) }}% ({{ player.totalGames }})
             </span>
           </div>
@@ -295,7 +297,8 @@ defineExpose({ showLobby, showAll })
         <button
           v-if="player.status === 'available' && player.userId !== authenticatedUserId && authenticatedUserId && !outgoingChallenge"
           @click="$emit('challenge', player.userId)"
-          class="text-xs px-3 py-1 rounded-full border border-blue-400 text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
+          class="text-xs px-3 py-1 rounded-full border transition-colors flex-shrink-0"
+          style="border-color: var(--color-primary); color: var(--color-primary)"
         >
           Challenge
         </button>
@@ -303,30 +306,31 @@ defineExpose({ showLobby, showAll })
     </div>
 
     <!-- Logged-in banner -->
-    <div v-if="authenticatedUserId && authenticatedUsername && isConnected" class="p-3 bg-green-50 border-l-4 border-green-400 rounded-lg flex items-center gap-2">
+    <div v-if="authenticatedUserId && authenticatedUsername && isConnected" class="p-3 bg-green-900/30 border-l-4 border-green-500 rounded-lg flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
-      <p class="text-sm text-green-800">Playing as <span class="font-semibold">{{ authenticatedUsername }}</span></p>
+      <p class="text-sm text-green-400">Playing as <span class="font-semibold">{{ authenticatedUsername }}</span></p>
     </div>
 
     <!-- Sign-in banner -->
-    <div v-if="!authenticatedUserId && isConnected" class="p-3 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
-      <p class="text-sm text-blue-800">
-        <button @click="$emit('showAuth')" class="font-semibold underline">Sign in</button>
+    <div v-if="!authenticatedUserId && isConnected" class="p-3 rounded-lg border-l-4" style="background-color: var(--color-base); border-color: var(--color-primary)">
+      <p class="text-sm" style="color: var(--color-text)">
+        <button @click="$emit('showAuth')" class="font-semibold underline" style="color: var(--color-primary)">Sign in</button>
         to appear in the lobby, challenge players, and track your rating progress.
       </p>
     </div>
 
     <!-- Outgoing challenge state -->
-    <div v-if="outgoingChallenge" class="p-3 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-2">
+    <div v-if="outgoingChallenge" class="p-3 rounded-xl space-y-2 border-2" style="background-color: var(--color-base); border-color: var(--color-primary)">
       <div class="flex items-center gap-3">
-        <div class="animate-pulse w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
-        <p class="text-sm font-semibold text-blue-800">
+        <div class="animate-pulse w-3 h-3 rounded-full flex-shrink-0" style="background-color: var(--color-primary)"></div>
+        <p class="text-sm font-semibold" style="color: var(--color-text)">
           Waiting for <span class="font-bold">{{ outgoingChallenge.targetName }}</span> to respond…
         </p>
       </div>
       <button
         @click="$emit('cancelChallenge', outgoingChallenge.targetUserId)"
-        class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        class="w-full font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        style="background-color: var(--color-surface); color: var(--color-text)"
       >
         Cancel Challenge
       </button>
@@ -335,7 +339,8 @@ defineExpose({ showLobby, showAll })
     <!-- Back button (always at bottom) -->
     <button
       @click="showLobby = false; lobbyFilter = ''; showAll = false"
-      class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+      class="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+      style="background-color: var(--color-surface); color: var(--color-text)"
     >
       <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
         <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
@@ -347,55 +352,72 @@ defineExpose({ showLobby, showAll })
   <!-- ── MAIN MENU VIEW ─────────────────────────────────────────────────── -->
   <div v-else class="w-full space-y-3">
     <!-- Challenge error -->
-    <div v-if="challengeError" class="p-3 bg-red-50 border-l-4 border-red-400 rounded-lg">
-      <p class="text-sm text-red-700">{{ challengeError }}</p>
+    <div v-if="challengeError" class="p-3 bg-red-900/30 border-l-4 border-red-500 rounded-lg">
+      <p class="text-sm text-red-400">{{ challengeError }}</p>
     </div>
 
     <!-- Main action buttons -->
-    <div v-if="!showJoinForm && !showAIDifficulty && !outgoingChallenge" class="space-y-3">
+    <div v-if="!showJoinForm && !showAIDifficulty && !outgoingChallenge" class="flex flex-col gap-4">
+      <h2 class="text-3xl font-bold mb-2 text-center drop-shadow-lg" style="color: var(--color-text)">Sudoku Battle</h2>
       <!-- Lobby -->
       <button
         v-if="isConnected"
         @click="showLobby = true"
-        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md flex items-center justify-between"
+        class="battle-menu-btn"
+        style="background-color: var(--color-primary)"
       >
-        <span class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
-            <path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-480-80h360v-6q0-37-70.5-60.5T480-410q-64 0-132 23t-68 61v6ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm0 320Zm0-360Z"/>
-          </svg>
-          Lobby
-        </span>
-        <span v-if="lobbyTotal > 0" class="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-          {{ lobbyTotal }} online
+        <span class="text-3xl flex-shrink-0">🌐</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Browse Lobby</span>
+          <span class="text-sm opacity-80">Challenge players online</span>
+        </div>
+        <span v-if="lobbyTotal > 0" class="ml-auto bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+          {{ lobbyTotal }}
         </span>
       </button>
 
       <button
         v-if="isConnected"
         @click="handleCreateRoom"
-        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md"
+        class="battle-menu-btn"
+        style="background-color: var(--color-secondary)"
       >
-        Create Multiplayer Room
+        <span class="text-3xl flex-shrink-0">🚪</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Create Room</span>
+          <span class="text-sm opacity-80">Invite a friend with a code</span>
+        </div>
       </button>
 
       <button
         v-if="isConnected"
         @click="showJoinForm = true"
-        class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+        class="battle-menu-btn"
+        style="background-color: var(--color-accent)"
       >
-        Join with Room Code
+        <span class="text-3xl flex-shrink-0">🔑</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Join with Code</span>
+          <span class="text-sm opacity-80">Enter a room code</span>
+        </div>
       </button>
 
       <button
         @click="showAIDifficulty = true"
-        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+        class="battle-menu-btn"
+        style="background-color: var(--color-surface)"
       >
-        Play vs AI
+        <span class="text-3xl flex-shrink-0">🤖</span>
+        <div class="flex flex-col items-start">
+          <span class="text-lg font-bold">Play vs AI</span>
+          <span class="text-sm opacity-80">Practice solo</span>
+        </div>
       </button>
 
       <button
         @click="$emit('back')"
-        class="w-full bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+        class="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 mt-1"
+        style="background-color: var(--color-surface); color: var(--color-text); opacity: 0.7"
       >
         <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
           <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
@@ -405,16 +427,17 @@ defineExpose({ showLobby, showAll })
     </div>
 
     <!-- Outgoing challenge waiting state (on main menu) -->
-    <div v-if="outgoingChallenge" class="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl space-y-3">
+    <div v-if="outgoingChallenge" class="p-4 rounded-xl space-y-3 border-2" style="background-color: var(--color-base); border-color: var(--color-primary)">
       <div class="flex items-center gap-3">
-        <div class="animate-pulse w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
-        <p class="text-sm font-semibold text-blue-800">
+        <div class="animate-pulse w-3 h-3 rounded-full flex-shrink-0" style="background-color: var(--color-primary)"></div>
+        <p class="text-sm font-semibold" style="color: var(--color-text)">
           Waiting for <span class="font-bold">{{ outgoingChallenge.targetName }}</span> to respond…
         </p>
       </div>
       <button
         @click="$emit('cancelChallenge', outgoingChallenge.targetUserId)"
-        class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        class="w-full font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        style="background-color: var(--color-surface); color: var(--color-text)"
       >
         Cancel Challenge
       </button>
@@ -422,10 +445,10 @@ defineExpose({ showLobby, showAll })
 
     <!-- AI difficulty picker -->
     <div v-if="showAIDifficulty && !outgoingChallenge" class="space-y-3">
-      <p class="text-sm font-semibold text-gray-700 text-center">Select AI Difficulty</p>
+      <p class="text-sm font-semibold text-center" style="color: var(--color-text)">Select AI Difficulty</p>
       <button
         @click="$emit('createAIGame', resolvedName(), 'beginner')"
-        class="w-full bg-green-400 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
       >
         Beginner
       </button>
@@ -443,7 +466,8 @@ defineExpose({ showLobby, showAll })
       </button>
       <button
         @click="showAIDifficulty = false"
-        class="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        class="w-full font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        style="background-color: var(--color-surface); color: var(--color-text)"
       >
         Cancel
       </button>
@@ -452,29 +476,62 @@ defineExpose({ showLobby, showAll })
     <!-- Join with code form -->
     <div v-if="showJoinForm && !outgoingChallenge" class="space-y-3">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Room Code</label>
+        <label class="block text-sm font-medium mb-1" style="color: var(--color-text)">Room Code</label>
         <input
           v-model="joinCode"
           type="text"
           placeholder="Enter 6-character code..."
           maxlength="6"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase text-sm"
+          class="w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-2 uppercase text-sm"
+          style="background-color: var(--color-base); color: var(--color-text); border: 1px solid var(--color-accent); --tw-ring-color: var(--color-accent)"
           @keyup.enter="handleJoinRoom"
         />
       </div>
       <button
         @click="handleJoinRoom"
         :disabled="!joinCode.trim()"
-        class="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+        class="w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+        style="background-color: var(--color-primary)"
       >
         Join Room
       </button>
       <button
         @click="showJoinForm = false; joinCode = ''"
-        class="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        class="w-full font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        style="background-color: var(--color-surface); color: var(--color-text)"
       >
         Cancel
       </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.battle-menu-btn {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border-radius: 1.25rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  border: none;
+  color: white;
+}
+
+.battle-menu-btn:active {
+  filter: brightness(0.9);
+}
+
+@media (hover: hover) {
+  .battle-menu-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  }
+}
+</style>

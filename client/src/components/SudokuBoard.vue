@@ -293,11 +293,11 @@ const cancelReset = () => {
 <template>
   <div class="flex flex-col items-center">
     <div v-if="!board" class="text-center p-8">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-      <p class="mt-4 text-gray-600">Generating puzzle...</p>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style="border-color: var(--color-primary)"></div>
+      <p class="mt-4" style="color: var(--color-text); opacity: 0.6">Generating puzzle...</p>
     </div>
 
-    <div v-else class="bg-gray-800 p-2 rounded-lg shadow-2xl">
+    <div v-else class="board-container p-2 rounded-lg shadow-2xl" style="background-color: var(--color-base)">
       <!-- 9x9 Grid -->
       <div class="grid grid-cols-9 gap-0">
         <template v-for="(row, rowIndex) in board.cells" :key="`row-${rowIndex}`">
@@ -315,8 +315,8 @@ const cancelReset = () => {
               getCellAnimationClass(rowIndex, colIndex),
               isRightBorder(colIndex) ? 'border-r-2 border-r-gray-800' : '',
               isBottomBorder(rowIndex) ? 'border-b-2 border-b-gray-800' : '',
-              cell.locked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-blue-50',
-              isCellSelected(rowIndex, colIndex) ? 'ring-2 ring-blue-500 ring-inset' : ''
+              cell.locked ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-90',
+              isCellSelected(rowIndex, colIndex) ? 'ring-2 ring-inset selected-cell' : ''
             ]"
             @click="handleCellClick(rowIndex, colIndex)"
           >
@@ -394,10 +394,11 @@ const cancelReset = () => {
       @click="closeNumberPad"
     >
       <div
-        class="number-pad-modal bg-white rounded-lg p-6 shadow-2xl"
+        class="number-pad-modal rounded-lg p-6 shadow-2xl"
+        style="background-color: var(--color-surface)"
         @click.stop
       >
-        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">
+        <h3 class="text-lg font-bold mb-4 text-center" style="color: var(--color-text)">
           Select a number
         </h3>
 
@@ -406,7 +407,8 @@ const cancelReset = () => {
             v-for="num in 9"
             :key="num"
             @click="selectNumber(num)"
-            class="number-button bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold rounded-lg transition-colors"
+            class="number-button text-white text-2xl font-bold rounded-lg transition-colors"
+            style="background-color: var(--color-primary)"
           >
             {{ num }}
           </button>
@@ -421,7 +423,8 @@ const cancelReset = () => {
           </button>
           <button
             @click="closeNumberPad"
-            class="flex-1 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg transition-colors"
+            class="flex-1 py-2 font-semibold rounded-lg transition-colors"
+            style="background-color: var(--color-base); color: var(--color-text)"
           >
             Cancel
           </button>
@@ -436,20 +439,22 @@ const cancelReset = () => {
       @click="cancelReset"
     >
       <div
-        class="reset-confirm-modal bg-white rounded-lg p-6 shadow-2xl mx-4"
+        class="reset-confirm-modal rounded-lg p-6 shadow-2xl mx-4"
+        style="background-color: var(--color-surface)"
         @click.stop
       >
-        <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">
+        <h3 class="text-xl font-bold mb-2 text-center" style="color: var(--color-text)">
           Reset Board?
         </h3>
-        <p class="text-gray-600 text-center mb-6">
+        <p class="text-center mb-6" style="color: var(--color-text); opacity: 0.7">
           This will clear all your entries and notes. This cannot be undone.
         </p>
 
         <div class="flex gap-3">
           <button
             @click="cancelReset"
-            class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+            class="flex-1 py-3 font-semibold rounded-lg transition-colors"
+            style="background-color: var(--color-base); color: var(--color-text)"
           >
             Cancel
           </button>
@@ -469,18 +474,22 @@ const cancelReset = () => {
 /* Ensure crisp borders */
 .grid > div:nth-child(9n+1) {
   border-left-width: 2px;
-  border-left-color: rgb(31, 41, 55);
+  border-left-color: var(--color-base);
 }
 
 .grid > div:nth-child(-n+9) {
   border-top-width: 2px;
-  border-top-color: rgb(31, 41, 55);
+  border-top-color: var(--color-base);
+}
+
+.selected-cell {
+  --tw-ring-color: var(--color-primary);
 }
 
 /* Fix column width inconsistency on mobile - ensure all columns equal width and square tiles */
 @media (max-width: 768px) {
   /* Make board expand to fill available width */
-  .bg-gray-800 {
+  .board-container {
     width: calc(95vw - 30px);
     max-width: calc(95vw - 30px);
   }
@@ -621,8 +630,8 @@ const cancelReset = () => {
 
 /* Notes toggle button */
 .notes-toggle-btn {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .notes-toggle-btn.notes-active {
@@ -632,8 +641,8 @@ const cancelReset = () => {
 
 /* Undo button */
 .undo-btn {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  background-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .control-btn.btn-disabled {
@@ -645,8 +654,8 @@ const cancelReset = () => {
 
 /* Reset board button */
 .reset-board-btn {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  background-color: var(--color-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Reset confirmation modal */
