@@ -818,7 +818,6 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     v-if="!showSplash && !gameModeSelected && showClassicDifficulty"
     @select-difficulty="handleClassicDifficultySelect"
     @back="handleBackFromDifficulty"
-    @show-help="showHelp = true"
   />
 
   <!-- Top Bar Buttons (only show on home page, not during Classic game) -->
@@ -857,39 +856,37 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     </button>
   </div>
 
-  <!-- Help Button (only show on home page, not during Classic game) -->
-  <button
-    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
-    @click="showHelp = true"
-    class="fixed top-[54px] right-[108px] z-50 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
-    style="background-color: var(--color-surface)"
-    title="Help & Rules"
+  <!-- Top-right Buttons: Help, Theme, Sound (home pages and Classic difficulty selector) -->
+  <div
+    v-if="!showSplash && (gameModeSelected || showClassicDifficulty) && !isPlaying && !isFinished && !classicGame.isPlaying.value"
+    class="fixed top-[54px] right-[19px] z-50 flex gap-2"
   >
-    <span class="text-2xl">❓</span>
-  </button>
-
-  <!-- Theme Picker Button (only show on home page) -->
-  <button
-    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
-    @click="showThemePicker = !showThemePicker"
-    class="fixed top-[54px] right-[64px] z-50 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
-    style="background-color: var(--color-surface)"
-    title="Change Theme"
-  >
-    <span class="text-2xl">🎨</span>
-  </button>
-
-  <!-- Music Control Button (only show on home page, not during Classic game) -->
-  <button
-    v-if="!showSplash && gameModeSelected && !isPlaying && !isFinished && !classicGame.isPlaying.value"
-    @click="toggleMute"
-    class="fixed top-[54px] right-[19px] z-50 font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
-    style="background-color: var(--color-surface)"
-    :title="isMuted ? 'Unmute Music' : 'Mute Music'"
-  >
-    <span v-if="isMuted" class="text-2xl">🔇</span>
-    <span v-else class="text-2xl">🔊</span>
-  </button>
+    <button
+      @click="showHelp = true"
+      class="font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+      style="background-color: var(--color-surface)"
+      title="Help & Rules"
+    >
+      <span class="text-2xl">❓</span>
+    </button>
+    <button
+      @click="showThemePicker = !showThemePicker"
+      class="font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+      style="background-color: var(--color-surface)"
+      title="Change Theme"
+    >
+      <span class="text-2xl">🎨</span>
+    </button>
+    <button
+      @click="toggleMute"
+      class="font-bold p-3 rounded-full shadow-lg transition-all hover:scale-110"
+      style="background-color: var(--color-surface)"
+      :title="isMuted ? 'Unmute Music' : 'Mute Music'"
+    >
+      <span v-if="isMuted" class="text-2xl">🔇</span>
+      <span v-else class="text-2xl">🔊</span>
+    </button>
+  </div>
 
   <!-- Theme Picker Panel -->
   <div
@@ -897,7 +894,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
     class="fixed inset-0 z-[75]"
   >
     <div class="absolute inset-0 bg-black/40" @click="showThemePicker = false"></div>
-    <div class="absolute top-[118px] right-[5vw] rounded-xl shadow-2xl p-4 w-64" style="background-color: var(--color-surface)">
+    <div class="absolute top-[118px] right-[19px] rounded-xl shadow-2xl p-4 w-64" style="background-color: var(--color-surface)">
       <h3 class="text-sm font-bold mb-3" style="color: var(--color-text)">Choose Theme</h3>
       <div class="space-y-2">
         <button

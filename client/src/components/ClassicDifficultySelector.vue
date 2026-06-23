@@ -27,17 +27,9 @@
         </div>
       </button>
 
-      <button @click="$emit('show-help')" class="menu-btn" style="background-color: var(--color-surface)">
-        <span class="text-3xl flex-shrink-0">❓</span>
-        <div class="flex flex-col items-start">
-          <span class="text-lg font-bold">Rules</span>
-          <span class="text-sm opacity-80">How to play Classic Sudoku</span>
-        </div>
-      </button>
-
       <button
         @click="$emit('back')"
-        class="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 mt-1"
+        class="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 mt-[36px]"
         style="background-color: var(--color-surface); color: var(--color-text); opacity: 0.7"
       >
         <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor">
@@ -53,7 +45,6 @@
 defineEmits<{
   'select-difficulty': [difficulty: 'easy' | 'medium' | 'hard']
   'back': []
-  'show-help': []
 }>()
 </script>
 
