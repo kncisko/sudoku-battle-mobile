@@ -466,7 +466,7 @@ defineExpose({ showLobby, showAll })
       </button>
       <button
         @click="showAIDifficulty = false"
-        class="w-full font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+        class="w-full font-semibold py-3 px-4 rounded-lg transition-colors text-sm !mt-[36px]"
         style="background-color: var(--color-surface); color: var(--color-text)"
       >
         Cancel
