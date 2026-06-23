@@ -219,7 +219,7 @@ defineExpose({ showLobby, showAll })
 
 <template>
   <!-- ── LOBBY VIEW ─────────────────────────────────────────────────────── -->
-  <div v-if="showLobby" class="w-full flex flex-col gap-3" style="height: 55vh;">
+  <div v-if="showLobby" class="w-full flex flex-col gap-3" style="height: 72vh;">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-bold" style="color: var(--color-text)">Online Players</h2>
