@@ -936,66 +936,77 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   </div>
 
   <!-- Main Game (only show when mode is selected) -->
-  <div v-if="!showSplash && gameModeSelected" class="h-screen flex items-center justify-center px-[5vw] py-4 overflow-y-hidden" style="background-color: var(--color-base)">
+  <div v-if="!showSplash && gameModeSelected"
+    class="h-screen flex justify-center px-[5px] overflow-y-hidden"
+    :class="(isPlaying || classicGame.isPlaying.value) ? 'items-start pt-[60px]' : 'items-center'"
+    style="background-color: var(--color-base)">
     <div
-      class="rounded-lg p-6 max-w-2xl w-full relative z-[60] game-panel-container"
-      :class="showPlayerLobby && !isPlaying && !isFinished ? '' : 'shadow-2xl'"
-      :style="showPlayerLobby && !isPlaying && !isFinished ? 'background: transparent' : 'background-color: var(--color-surface)'"
+      class="py-4 px-0 w-full relative z-[60] game-panel-container"
     >
       <!-- Transparent overlay to block card interactions when a panel is open -->
       <div v-if="showLeaderboard || showProfileDropdown || showHelp" class="absolute inset-0 rounded-lg z-10"></div>
-      <!-- Connection Status - top left during gameplay only (Battle mode only) -->
-      <div v-if="gameMode !== 'classic' && isPlaying && !isFinished" class="absolute top-[42px] left-[47px] flex items-center gap-2">
-        <span class="relative flex h-2 w-2">
-          <span v-if="connectionStatus === 'connected'"
-                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2"
-                :class="{
-                  'bg-green-500': connectionStatus === 'connected',
-                  'bg-red-500': connectionStatus === 'disconnected' || connectionStatus === 'error',
-                  'bg-yellow-500': connectionStatus === 'reconnecting'
-                }"></span>
-        </span>
-        <span class="text-xs font-medium" :class="{
-          'text-green-700': connectionStatus === 'connected',
-          'text-red-700': connectionStatus === 'disconnected' || connectionStatus === 'error',
-          'text-yellow-700': connectionStatus === 'reconnecting'
-        }">
+
+      <!-- Gameplay top bar: Connected pill | Practice/Tracked pill | Sound + Leave -->
+      <div v-if="isPlaying || classicGame.isPlaying.value" class="flex items-center justify-between mb-3 px-2">
+        <!-- Connected pill (left, Battle only) -->
+        <div v-if="gameMode !== 'classic' && !isFinished"
+             class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white"
+             :class="{
+               'text-green-700': connectionStatus === 'connected',
+               'text-red-700': connectionStatus === 'disconnected' || connectionStatus === 'error',
+               'text-yellow-700': connectionStatus === 'reconnecting'
+             }">
+          <span class="relative flex h-2 w-2">
+            <span v-if="connectionStatus === 'connected'"
+                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2"
+                  :class="{
+                    'bg-green-500': connectionStatus === 'connected',
+                    'bg-red-500': connectionStatus === 'disconnected' || connectionStatus === 'error',
+                    'bg-yellow-500': connectionStatus === 'reconnecting'
+                  }"></span>
+          </span>
           {{ connectionStatus === 'connected' ? 'Connected' :
              connectionStatus === 'reconnecting' ? `Reconnecting${connectionAttempts > 0 ? ` (${connectionAttempts})` : ''}...` :
-             connectionStatus === 'error' ? 'Connection Error' :
-             'Disconnected' }}
-        </span>
+             connectionStatus === 'error' ? 'Error' : 'Disconnected' }}
+        </div>
+        <div v-else class="flex-1"></div>
+
+        <!-- Practice / Tracked Game pill (center) -->
+        <div v-if="isPlaying && players.length === 2"
+             class="text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1"
+             :class="isTrackedGame ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'">
+          <span>{{ isTrackedGame ? '🔒 Tracked Game' : '👥 Practice Game' }}</span>
+        </div>
+        <div v-else class="flex-1"></div>
+
+        <!-- Sound + Leave buttons (right) -->
+        <div class="flex items-center gap-2">
+          <button
+            @click="toggleMute"
+            class="w-10 h-10 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+            style="background-color: var(--color-primary)"
+            :title="isMuted ? 'Unmute Music' : 'Mute Music'"
+          >
+            <span v-if="isMuted" class="text-xl">🔇</span>
+            <span v-else class="text-xl">🔊</span>
+          </button>
+          <button
+            @click="handleLeaveGame"
+            class="w-10 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
+            title="Leave Game"
+          >
+            ✕
+          </button>
+        </div>
       </div>
-
-      <!-- Music Control Button (during gameplay) -->
-      <button
-        v-if="isPlaying || classicGame.isPlaying.value"
-        @click="toggleMute"
-        class="absolute top-[30px] right-16 w-10 h-10 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
-        style="background-color: var(--color-primary)"
-        :title="isMuted ? 'Unmute Music' : 'Mute Music'"
-      >
-        <span v-if="isMuted" class="text-xl">🔇</span>
-        <span v-else class="text-xl">🔊</span>
-      </button>
-
-      <!-- Leave Game Button (top-right corner X) -->
-      <button
-        v-if="isPlaying || classicGame.isPlaying.value"
-        @click="handleLeaveGame"
-        class="absolute top-[30px] right-4 w-10 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center"
-        title="Leave Game"
-      >
-        ✕
-      </button>
 
       <!-- Title - only show when NOT playing and NOT in player lobby (PlayerLobby has its own title) -->
       <h1 v-if="!(isPlaying || classicGame.isPlaying.value) && !showPlayerLobby" class="text-3xl font-bold mb-2 text-center" style="color: var(--color-text)">
         {{ gameMode === 'classic' ? 'Classic Sudoku' : 'Sudoku Battle' }}
       </h1>
 
-      <div class="space-y-6" :class="{ 'mt-14': isPlaying || classicGame.isPlaying.value }">
+      <div class="space-y-6">
         <!-- Classic Sudoku Game View -->
         <div v-if="gameMode === 'classic' && (classicGame.isPlaying.value || classicGame.isCompleted.value)">
           <!-- Game Stats -->
@@ -1165,7 +1176,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           </div>
 
           <!-- Turn Status Container (fixed height to prevent jumping) -->
-          <div class="h-[64px]">
+          <div class="h-[64px] px-2">
             <!-- Move Status Indicator -->
             <div v-if="gameMode === 'online' && isPlaying && moveStatus === 'submitting'" class="mb-2 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
               <p class="text-sm text-blue-800 font-semibold flex items-center gap-2">
@@ -1188,16 +1199,6 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
                 <span>👀</span>
                 <span>Waiting for opponent to finish their turn...</span>
               </p>
-            </div>
-          </div>
-
-          <!-- Game Tracking Indicator -->
-          <div v-if="isPlaying && players.length === 2" class="mb-2 flex justify-center">
-            <div
-              class="text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1"
-              :class="isTrackedGame ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
-            >
-              <span>{{ isTrackedGame ? '🔒 Tracked Game' : '👥 Practice Game' }}</span>
             </div>
           </div>
 
@@ -1400,10 +1401,13 @@ body {
   .mb-4.flex.gap-3 {
     flex-direction: column;
     gap: 0.5rem; /* Small gap between stacked cards */
-    width: calc(95vw - 33px); /* Match board width */
-    max-width: calc(95vw - 33px);
-    margin-left: -20px;
-    margin-right: auto;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    box-sizing: border-box;
   }
 
   .mb-4.flex.gap-3 > div {

@@ -490,8 +490,8 @@ const cancelReset = () => {
 @media (max-width: 768px) {
   /* Make board expand to fill available width */
   .board-container {
-    width: calc(95vw - 30px);
-    max-width: calc(95vw - 30px);
+    width: calc(100vw - 10px);
+    max-width: calc(100vw - 10px);
   }
 
   .grid {
