@@ -1029,6 +1029,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
             :players="[]"
             :is-finished="classicGame.isCompleted.value"
             :enable-notes="true"
+            :inline-numpad="true"
             :can-undo="classicGame.canUndo.value"
             @make-move="(row, col, value) => classicGame.makeMove(row, col, value)"
             @toggle-note="(row, col, note) => classicGame.toggleNote(row, col, note)"

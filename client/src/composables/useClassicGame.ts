@@ -139,9 +139,10 @@ export function useClassicGame() {
       currentNotes.sort() // Keep notes sorted
     }
 
-    // Update cell by creating a new object to ensure Vue reactivity
+    // Update cell — if cell had a value, clear it (notes replace the value)
     board.value.cells[row][col] = {
       ...cell,
+      value: null,
       notes: currentNotes
     }
   }

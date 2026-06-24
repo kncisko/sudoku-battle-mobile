@@ -13,6 +13,7 @@ interface Props {
   isFinished?: boolean
   enableNotes?: boolean  // Enable notes mode for Classic Sudoku
   canUndo?: boolean      // Whether undo is available (Classic Sudoku)
+  inlineNumpad?: boolean // Classic Sudoku: permanent numpad row instead of popup
 }
 
 const props = defineProps<Props>()
@@ -203,7 +204,9 @@ const handleCellClick = (row: number, col: number) => {
   playClickSound()
 
   selectedCell.value = { row, col }
-  showNumberPad.value = true
+  if (!props.inlineNumpad) {
+    showNumberPad.value = true
+  }
 }
 
 // Handle number selection
@@ -213,19 +216,17 @@ const selectNumber = (value: number) => {
   const { row, col } = selectedCell.value
 
   if (notesMode.value && props.enableNotes) {
-    // Toggle note mode
     emit('toggleNote', row, col, value)
-
-    // Close keypad automatically
-    selectedCell.value = null
-    showNumberPad.value = false
+    if (!props.inlineNumpad) {
+      selectedCell.value = null
+      showNumberPad.value = false
+    }
   } else {
-    // Regular move - let the result sound play (ding for correct, wind-up for wrong)
     emit('makeMove', row, col, value)
-
-    // Clear selection
-    selectedCell.value = null
-    showNumberPad.value = false
+    if (!props.inlineNumpad) {
+      selectedCell.value = null
+      showNumberPad.value = false
+    }
   }
 }
 
@@ -235,19 +236,17 @@ const clearCell = () => {
 
   const { row, col } = selectedCell.value
 
-  // Clear both value and notes
   const cell = props.board.cells[row][col]
   if (cell.notes && cell.notes.length > 0) {
-    // Clear notes
     cell.notes = []
   }
 
-  // Clear value
   emit('makeMove', row, col, null)
 
-  // Clear selection
-  selectedCell.value = null
-  showNumberPad.value = false
+  if (!props.inlineNumpad) {
+    selectedCell.value = null
+    showNumberPad.value = false
+  }
 }
 
 // Toggle notes mode
@@ -357,7 +356,20 @@ const cancelReset = () => {
       </div>
     </div>
 
-    <!-- Classic Sudoku Controls (Notes Toggle + Undo + Reset Board) -->
+    <!-- Inline Number Pad (Classic Sudoku only) -->
+    <!-- Inline Number Pad (Classic Sudoku only) — 9 number buttons -->
+    <div v-if="inlineNumpad && !isFinished" class="inline-numpad">
+      <button
+        v-for="num in 9"
+        :key="num"
+        @click="selectNumber(num)"
+        :disabled="!selectedCell"
+        class="inline-num-btn"
+        :class="{ 'inline-num-btn--disabled': !selectedCell }"
+      >{{ num }}</button>
+    </div>
+
+    <!-- Classic Sudoku Controls (Notes Toggle + Undo + Reset + Clear) -->
     <div v-if="enableNotes && !isFinished" class="classic-controls">
       <button
         @click="toggleNotesMode"
@@ -384,6 +396,17 @@ const cancelReset = () => {
       >
         <span>🔄</span>
         <span>Reset</span>
+      </button>
+
+      <button
+        v-if="inlineNumpad"
+        @click="clearCell"
+        :disabled="!selectedCell"
+        class="control-btn clear-btn"
+        :class="{ 'btn-disabled': !selectedCell }"
+      >
+        <span>🧹</span>
+        <span>Clear</span>
       </button>
     </div>
 
@@ -484,6 +507,47 @@ const cancelReset = () => {
 
 .selected-cell {
   --tw-ring-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 25%, white) !important;
+}
+
+/* Inline numpad row — 9 equal buttons spanning full board width */
+.inline-numpad {
+  display: flex;
+  width: calc(100vw - 10px);
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.inline-num-btn {
+  flex: 1;
+  aspect-ratio: 1 / 1;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inline-num-btn:active:not(:disabled) {
+  filter: brightness(1.3);
+}
+
+.inline-num-btn--disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Clear button in classic controls row */
+.clear-btn {
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  color: #ef4444 !important;
 }
 
 /* Fix column width inconsistency on mobile - ensure all columns equal width and square tiles */
@@ -599,10 +663,10 @@ const cancelReset = () => {
 
 /* Classic controls container */
 .classic-controls {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   display: flex;
-  gap: 0.5rem;
-  justify-content: center;
+  gap: 3px;
+  width: calc(100vw - 10px);
   align-items: stretch;
 }
 
