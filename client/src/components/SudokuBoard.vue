@@ -391,22 +391,24 @@ const cancelReset = () => {
       </button>
 
       <button
-        @click="handleResetBoard"
-        class="control-btn reset-board-btn"
-      >
-        <span>🔄</span>
-        <span>Reset</span>
-      </button>
-
-      <button
         v-if="inlineNumpad"
         @click="clearCell"
         :disabled="!selectedCell"
         class="control-btn clear-btn"
         :class="{ 'btn-disabled': !selectedCell }"
       >
-        <span>🧹</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white">
+          <path d="M15.14 3 21 8.86 8.86 21H3v-5.86L15.14 3zm0 2.83L5 15.97V19h3.03L18.17 8.86l-3.03-3.03zM19 17h2v2h-8v-2h4.17l1.83-1.83V17z"/>
+        </svg>
         <span>Clear</span>
+      </button>
+
+      <button
+        @click="handleResetBoard"
+        class="control-btn reset-board-btn"
+      >
+        <span>🔄</span>
+        <span>Reset</span>
       </button>
     </div>
 
@@ -545,9 +547,9 @@ const cancelReset = () => {
 
 /* Clear button in classic controls row */
 .clear-btn {
-  background-color: var(--color-surface);
+  background-color: var(--color-secondary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  color: #ef4444 !important;
+  color: white !important;
 }
 
 /* Fix column width inconsistency on mobile - ensure all columns equal width and square tiles */
@@ -710,10 +712,8 @@ const cancelReset = () => {
 }
 
 .control-btn.btn-disabled {
-  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
-  box-shadow: 0 2px 8px rgba(156, 163, 175, 0.2);
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.35;
 }
 
 /* Reset board button */
