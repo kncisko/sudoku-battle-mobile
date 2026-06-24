@@ -178,7 +178,8 @@ const toggleMute = async () => {
         await NativeAudio.stop({ assetId: SPLASH_AUDIO_ID })
         await NativeAudio.stop({ assetId: GAME_AUDIO_ID })
       } else {
-        if (gameStatus.value === 'playing') {
+        const shouldPlayGameMusic = gameStatus.value === 'playing' || (classicGame.isPlaying.value && !classicGame.isCompleted.value)
+        if (shouldPlayGameMusic) {
           await NativeAudio.loop({ assetId: GAME_AUDIO_ID })
         } else {
           await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
@@ -193,7 +194,8 @@ const toggleMute = async () => {
       splashAudio?.pause()
       gameAudio?.pause()
     } else {
-      if (gameStatus.value === 'playing') {
+      const shouldPlayGameMusic = gameStatus.value === 'playing' || (classicGame.isPlaying.value && !classicGame.isCompleted.value)
+      if (shouldPlayGameMusic) {
         gameAudio?.play()
       } else {
         splashAudio?.play()
