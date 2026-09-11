@@ -5,7 +5,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { GameRoom } from './game/GameRoom.js';
 import { clearRoomColors } from './game/ColorSchemes.js';
-import { supabase, isSupabaseConfigured } from './lib/supabase.js';
+import { supabase, isSupabaseConfigured, withTimeout } from './lib/supabase.js';
 import { Lobby } from './game/Lobby.js';
 import { ChallengeManager } from './game/ChallengeManager.js';
 
@@ -63,11 +63,10 @@ const challengeManager = new ChallengeManager((challenge) => {
 async function fetchPlayerRating(userId: string): Promise<{ winRate: number; totalGames: number }> {
   if (!isSupabaseConfigured || !supabase) return { winRate: 0, totalGames: 0 };
   try {
-    const { data } = await supabase
-      .from('leaderboard')
-      .select('win_rate, total_games')
-      .eq('user_id', userId)
-      .single();
+    const { data } = await withTimeout(
+      supabase.from('leaderboard').select('win_rate, total_games').eq('user_id', userId).single(),
+      'fetchPlayerRating'
+    );
     return { winRate: (data?.win_rate ?? 0) / 100, totalGames: data?.total_games ?? 0 };
   } catch {
     return { winRate: 0, totalGames: 0 };
@@ -136,17 +135,21 @@ async function makeAIMove(roomCode: string): Promise<void> {
   // Check if game is finished
   if (room.isGameFinished()) {
     const winner = room.getWinner();
-
-    await room.getGameTracker().trackGameResult(winner, room.getScores(), room.isEarlyWin());
+    const scores = room.getScores();
+    const earlyWin = room.isEarlyWin();
 
     io.to(roomCode).emit('game_end', {
-      winner: winner,
-      scores: room.getScores(),
+      winner,
+      scores,
       players: room.getPlayers(),
-      earlyWin: room.isEarlyWin()
+      earlyWin
     });
 
     console.log(`[${roomCode}] Game finished`);
+
+    // Fire-and-forget — must not block game_end delivery
+    room.getGameTracker().trackGameResult(winner, scores, earlyWin)
+      .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
     return;
   }
 
@@ -491,15 +494,19 @@ io.on('connection', (socket) => {
 
     if (room.isGameFinished()) {
       const winner = room.getWinner();
-
-      await room.getGameTracker().trackGameResult(winner, room.getScores(), room.isEarlyWin());
+      const scores = room.getScores();
+      const earlyWin = room.isEarlyWin();
 
       io.to(roomCode).emit('game_end', {
         winner,
-        scores: room.getScores(),
+        scores,
         players: room.getPlayers(),
-        earlyWin: room.isEarlyWin()
+        earlyWin
       });
+
+      // Fire-and-forget — must not block game_end delivery
+      room.getGameTracker().trackGameResult(winner, scores, earlyWin)
+        .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
     } else {
       io.to(roomCode).emit('board_update', {
         board: room.getBoard(),
@@ -639,17 +646,21 @@ io.on('connection', (socket) => {
 
     if (room.isGameFinished()) {
       const winner = room.getWinner();
-
-      await room.getGameTracker().trackGameResult(winner, room.getScores(), room.isEarlyWin());
+      const scores = room.getScores();
+      const earlyWin = room.isEarlyWin();
 
       io.to(roomCode).emit('game_end', {
-        winner: winner,
-        scores: room.getScores(),
+        winner,
+        scores,
         players: room.getPlayers(),
-        earlyWin: room.isEarlyWin()
+        earlyWin
       });
 
-      console.log(`Game ended in room ${roomCode}. Winner: ${winner?.name || 'TIE'}${room.isEarlyWin() ? ' (Early Win)' : ''}`);
+      console.log(`Game ended in room ${roomCode}. Winner: ${winner?.name || 'TIE'}${earlyWin ? ' (Early Win)' : ''}`);
+
+      // Fire-and-forget — must not block game_end delivery
+      room.getGameTracker().trackGameResult(winner, scores, earlyWin)
+        .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
     } else if (room.isAIEnabled()) {
       const nextPlayer = room.getCurrentPlayer();
       if (nextPlayer?.socketId === 'ai') {
@@ -658,6 +669,42 @@ io.on('connection', (socket) => {
         }, 1500);
       }
     }
+  });
+
+  // Debug: immediately end the game in the sender's room.
+  socket.on('debug_force_finish', (data?: { secret?: string }) => {
+    // If a DEBUG_SECRET is configured, require it; otherwise allow freely (dev/test)
+    if (DEBUG_SECRET && data?.secret !== DEBUG_SECRET) return;
+
+    const roomCode = socketToRoom.get(socket.id);
+    if (!roomCode) return;
+    const room = rooms.get(roomCode);
+    if (!room || room.getStatus() !== 'playing') return;
+
+    console.log(`[${roomCode}] DEBUG: force-finishing game`);
+
+    const players = room.getPlayers();
+    const opponent = players.find(p => p.socketId !== socket.id && p.socketId !== 'ai');
+    if (opponent) room.forfeitPlayer(opponent.id);
+
+    const winner = room.getWinner();
+    const scores = room.getScores();
+
+    io.to(roomCode).emit('game_end', {
+      winner,
+      scores,
+      players: room.getPlayers(),
+      forfeit: true,
+      forfeitedPlayerId: opponent?.id,
+    });
+
+    rooms.delete(roomCode);
+    clearRoomColors(roomCode);
+    console.log(`[${roomCode}] DEBUG: force-finish complete`);
+
+    // Fire-and-forget tracking
+    room.getGameTracker().trackGameResult(winner, scores, false)
+      .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
   });
 
   // Handle disconnect
@@ -737,16 +784,19 @@ io.on('connection', (socket) => {
 
               currentRoom.forfeitPlayer(player.id);
               const winner = currentRoom.getWinner();
-
-              await currentRoom.getGameTracker().trackGameResult(winner, currentRoom.getScores(), false);
+              const scores = currentRoom.getScores();
 
               io.to(roomCode).emit('game_end', {
                 winner,
-                scores: currentRoom.getScores(),
+                scores,
                 players: currentRoom.getPlayers(),
                 forfeit: true,
                 forfeitedPlayerId: player.id,
               });
+
+              // Fire-and-forget — must not block game_end delivery
+              currentRoom.getGameTracker().trackGameResult(winner, scores, false)
+                .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
 
               rooms.delete(roomCode);
               clearRoomColors(roomCode);
@@ -761,9 +811,86 @@ io.on('connection', (socket) => {
   });
 });
 
-// Basic health check endpoint
+// Heartbeat — updated every 5 s to detect event loop blockage.
+// If the interval fires late, eventLoopLagMs will be elevated.
+let lastHeartbeat = Date.now();
+const heartbeatInterval = setInterval(() => { lastHeartbeat = Date.now(); }, 5000);
+heartbeatInterval.unref(); // don't keep the process alive for this alone
+
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), build: 'lobby-v3' });
+  const lagMs = Date.now() - lastHeartbeat;
+  // Lag > 15 s means the event loop hasn't run the interval in 3 cycles — degraded
+  const status = lagMs < 15000 ? 'ok' : 'degraded';
+  res.json({
+    status,
+    eventLoopLagMs: lagMs,
+    rooms: rooms.size,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ── Debug endpoints (only active when DEBUG_SECRET env var is set) ────────────
+
+const DEBUG_SECRET = process.env.DEBUG_SECRET;
+
+function checkDebugSecret(req: any, res: any): boolean {
+  if (!DEBUG_SECRET) {
+    res.status(404).json({ error: 'Not found' });
+    return false;
+  }
+  if (req.query.secret !== DEBUG_SECRET) {
+    res.status(403).json({ error: 'Forbidden' });
+    return false;
+  }
+  return true;
+}
+
+// POST /debug/force-end?secret=XXX&p1=<uuid>&p2=<uuid>&winner=<uuid|tie>
+// Directly exercises the full GameTracker → Supabase chain without needing a real game.
+app.post('/debug/force-end', async (req: any, res: any) => {
+  if (!checkDebugSecret(req, res)) return;
+
+  const { p1, p2, winner } = req.query as Record<string, string>;
+  if (!p1 || !p2) {
+    res.status(400).json({ error: 'Provide p1 and p2 query params (UUIDs)' });
+    return;
+  }
+
+  const { GameTracker } = await import('./services/GameTracker.js');
+
+  const fakeRoom = '_debug_';
+  const tracker = new GameTracker(fakeRoom, false);
+
+  const makePlayer = (id: string, name: string): any => ({
+    id, name, socketId: 'debug', colorScheme: {} as any, userId: id
+  });
+
+  const p1Player = makePlayer(p1, 'Player1');
+  const p2Player = makePlayer(p2, 'Player2');
+  tracker.setPlayers([p1Player, p2Player]);
+
+  const winnerPlayer = winner === 'tie' ? null : winner === p1 ? p1Player : p2Player;
+  const scores = { [p1]: 20, [p2]: 15 };
+
+  const start = Date.now();
+  try {
+    await tracker.trackGameResult(winnerPlayer, scores, false);
+    res.json({ status: 'ok', durationMs: Date.now() - start });
+  } catch (err: any) {
+    res.status(500).json({ status: 'error', message: err.message, durationMs: Date.now() - start });
+  }
+});
+
+// GET /debug/rooms?secret=XXX — list active rooms and their player IDs
+app.get('/debug/rooms', (req: any, res: any) => {
+  if (!checkDebugSecret(req, res)) return;
+  const summary = [...rooms.entries()].map(([code, room]) => ({
+    code,
+    status: room.getStatus(),
+    players: room.getPlayers().map(p => ({ id: p.id, name: p.name, userId: p.userId })),
+    scores: room.getScores(),
+  }));
+  res.json(summary);
 });
 
 // Database connectivity test
@@ -772,10 +899,17 @@ app.get('/test-db', async (_req, res) => {
     res.json({ status: 'not_configured' });
     return;
   }
-  const { error } = await supabase.from('profiles').select('id').limit(1);
-  if (error) {
-    res.json({ status: 'error', message: error.message, code: error.code });
-  } else {
-    res.json({ status: 'ok' });
+  try {
+    const { error } = await withTimeout(
+      supabase.from('profiles').select('id').limit(1),
+      '/test-db probe'
+    );
+    if (error) {
+      res.json({ status: 'error', message: error.message, code: error.code });
+    } else {
+      res.json({ status: 'ok' });
+    }
+  } catch (err: any) {
+    res.status(503).json({ status: 'error', message: err.message });
   }
 });

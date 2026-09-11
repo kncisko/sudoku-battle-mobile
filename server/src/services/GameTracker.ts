@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
+import { supabase, isSupabaseConfigured, withTimeout } from '../lib/supabase.js';
 import type { Player } from '../../../shared/types.js';
 import { updateRatings, newPlayerRating, type PlayerRating } from './RatingService.js';
 
@@ -97,9 +97,10 @@ export class GameTracker {
         earlyWin
       });
 
-      const { error } = await supabase
-        .from('game_results')
-        .insert([gameResult]);
+      const { error } = await withTimeout(
+        supabase.from('game_results').insert([gameResult]),
+        `[${this.roomCode}] game_results insert`
+      );
 
       if (error) {
         if (error.code === '23503') {
@@ -125,10 +126,10 @@ export class GameTracker {
     if (!supabase || !this.player1 || !this.player2) return;
 
     try {
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('id, rating, rd, vol')
-        .in('id', [this.player1.id, this.player2.id]);
+      const { data: profiles, error } = await withTimeout(
+        supabase.from('profiles').select('id, rating, rd, vol').in('id', [this.player1.id, this.player2.id]),
+        `[${this.roomCode}] profiles fetch`
+      );
 
       if (error || !profiles || profiles.length !== 2) {
         console.warn(`[${this.roomCode}] Could not fetch profiles for rating update`);
@@ -152,12 +153,13 @@ export class GameTracker {
 
       const { player1: new1, player2: new2 } = updateRatings(r1, r2, outcome);
 
-      await Promise.all([
-        supabase.from('profiles').update({ rating: new1.rating, rd: new1.rd, vol: new1.vol })
-          .eq('id', this.player1.id),
-        supabase.from('profiles').update({ rating: new2.rating, rd: new2.rd, vol: new2.vol })
-          .eq('id', this.player2.id)
-      ]);
+      await withTimeout(
+        Promise.all([
+          supabase.from('profiles').update({ rating: new1.rating, rd: new1.rd, vol: new1.vol }).eq('id', this.player1.id),
+          supabase.from('profiles').update({ rating: new2.rating, rd: new2.rd, vol: new2.vol }).eq('id', this.player2.id),
+        ]),
+        `[${this.roomCode}] profiles rating update`
+      );
 
       console.log(
         `[${this.roomCode}] ✓ Ratings updated —`,

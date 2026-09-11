@@ -291,6 +291,19 @@ let previousTurn = ref<string | null>(null)
 // End game animation
 const showEndButton = ref(false)
 
+const debugLabel = ref('[DEBUG] Force End')
+const debugForceEnd = () => {
+  const sock = onlineGame.socket.value
+  if (sock) {
+    debugLabel.value = 'SENT ✓'
+    sock.emit('debug_force_finish', { secret: 'x7kQ9mR2pL8vN3wJ' })
+    setTimeout(() => { debugLabel.value = '[DEBUG] Force End' }, 2000)
+  } else {
+    debugLabel.value = 'NO SOCKET ✗'
+    setTimeout(() => { debugLabel.value = '[DEBUG] Force End' }, 2000)
+  }
+}
+
 const handleEndGame = () => {
   if (gameMode.value === 'online') {
     // Disconnect from current room and reset state
@@ -1257,6 +1270,16 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
               :class="reconnectSecondsLeft <= 20 ? 'text-red-400 animate-pulse' : 'text-blue-300'"
             >{{ reconnectSecondsLeft }}s</p>
             <p class="text-xs text-gray-400 mt-1">Game forfeited if they don't return</p>
+          </div>
+
+          <!-- DEBUG: force-end button for testing game_end flow -->
+          <div v-if="false && isPlaying && gameMode === 'online'" class="mb-2 flex justify-center">
+            <button
+              @click="debugForceEnd"
+              class="px-4 py-2 text-sm font-mono bg-red-600 text-white rounded"
+            >
+              {{ debugLabel }}
+            </button>
           </div>
 
           <!-- Sudoku Board -->
