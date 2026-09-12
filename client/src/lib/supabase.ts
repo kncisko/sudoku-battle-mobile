@@ -7,6 +7,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase credentials not configured. Authentication features will be disabled.')
 }
 
+const FETCH_TIMEOUT_MS = 8000
+
+function fetchWithTimeout(url: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(id))
+}
+
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   auth: {
     autoRefreshToken: true,
@@ -14,6 +23,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     detectSessionInUrl: true
   },
   global: {
+    fetch: fetchWithTimeout,
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
