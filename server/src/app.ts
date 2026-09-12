@@ -147,6 +147,10 @@ async function makeAIMove(roomCode: string): Promise<void> {
 
     console.log(`[${roomCode}] Game finished`);
 
+    rooms.delete(roomCode);
+    clearRoomColors(roomCode);
+    for (const p of room.getPlayers()) socketToRoom.delete(p.socketId);
+
     // Fire-and-forget — must not block game_end delivery
     room.getGameTracker().trackGameResult(winner, scores, earlyWin)
       .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
@@ -504,6 +508,10 @@ io.on('connection', (socket) => {
         earlyWin
       });
 
+      rooms.delete(roomCode);
+      clearRoomColors(roomCode);
+      for (const p of room.getPlayers()) socketToRoom.delete(p.socketId);
+
       // Fire-and-forget — must not block game_end delivery
       room.getGameTracker().trackGameResult(winner, scores, earlyWin)
         .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
@@ -658,6 +666,10 @@ io.on('connection', (socket) => {
 
       console.log(`Game ended in room ${roomCode}. Winner: ${winner?.name || 'TIE'}${earlyWin ? ' (Early Win)' : ''}`);
 
+      rooms.delete(roomCode);
+      clearRoomColors(roomCode);
+      for (const p of room.getPlayers()) socketToRoom.delete(p.socketId);
+
       // Fire-and-forget — must not block game_end delivery
       room.getGameTracker().trackGameResult(winner, scores, earlyWin)
         .catch(err => console.error(`[${roomCode}] trackGameResult error:`, err));
@@ -700,6 +712,7 @@ io.on('connection', (socket) => {
 
     rooms.delete(roomCode);
     clearRoomColors(roomCode);
+    for (const p of room.getPlayers()) socketToRoom.delete(p.socketId);
     console.log(`[${roomCode}] DEBUG: force-finish complete`);
 
     // Fire-and-forget tracking

@@ -96,11 +96,12 @@ function updateOne(
 
   let A = a
   let B = dSq > phiSq + v ? Math.log(dSq - phiSq - v) : a - TAU
-  while (f(B) >= 0) B -= TAU // ensure f(B) < 0
+  while (f(B) < 0) B -= TAU // find B where f(B) >= 0 to bracket the root with A
 
   let fA = f(A), fB = f(B)
   const EPSILON = 1e-6
-  while (Math.abs(B - A) > EPSILON) {
+  let iter = 0
+  while (Math.abs(B - A) > EPSILON && iter++ < 1000) {
     const C = A + (A - B) * fA / (fB - fA)
     const fC = f(C)
     if (fC * fB <= 0) { A = B; fA = fB } else { fA /= 2 }
