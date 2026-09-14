@@ -4,6 +4,12 @@
 <dict>
     <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to scan sudoku puzzles from physical books, magazines, or screens.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to load sudoku puzzle photos from your gallery.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Used to save sudoku puzzle photos to your gallery.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
