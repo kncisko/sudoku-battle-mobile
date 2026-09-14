@@ -9,6 +9,7 @@ interface Props {
   gameStarting: boolean
   isConnected: boolean
   authenticatedUsername?: string | null
+  fromLobbyChallenge?: boolean
 }
 
 const props = defineProps<Props>()
@@ -225,8 +226,8 @@ const handleJoinRoom = () => {
 
     <!-- In a room -->
     <div v-else class="space-y-4">
-      <!-- Room Code Display (only for multiplayer, not AI games) -->
-      <div v-if="!players.some(p => p.name === 'AI Opponent')" class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+      <!-- Room Code Display (only for manual room creation, not lobby challenges or AI games) -->
+      <div v-if="!fromLobbyChallenge && !players.some(p => p.name === 'AI Opponent')" class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
         <p class="text-sm text-gray-600 text-center mb-2">Room Code:</p>
         <p class="text-3xl font-mono font-bold text-blue-600 text-center tracking-widest">
           {{ roomCode }}
@@ -267,7 +268,7 @@ const handleJoinRoom = () => {
           </div>
           <div class="flex-1">
             <p class="font-medium text-gray-500">Waiting for opponent...</p>
-            <p class="text-xs text-gray-400">Share the room code above</p>
+            <p v-if="!fromLobbyChallenge" class="text-xs text-gray-400">Share the room code above</p>
           </div>
           <div class="animate-pulse">
             <div class="w-2 h-2 bg-gray-400 rounded-full"></div>

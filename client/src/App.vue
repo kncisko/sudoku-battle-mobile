@@ -22,6 +22,7 @@ import type { Player } from '../../shared/types'
 import { NativeAudio } from '@capacitor-community/native-audio'
 import { Capacitor } from '@capacitor/core'
 import { KeepAwake } from '@capacitor-community/keep-awake'
+import { Preferences } from '@capacitor/preferences'
 
 // Splash screen state
 const showSplash = ref(true)
@@ -74,6 +75,10 @@ const SPLASH_AUDIO_PATH = 'public/assets/puzzled_groove.mp3'
 const GAME_AUDIO_PATH = 'public/assets/sudoku_serenade.mp3'
 
 onMounted(async () => {
+  // Restore mute preference before audio initializes
+  const { value: savedMute } = await Preferences.get({ key: 'music_muted' })
+  isMuted.value = savedMute === 'true'
+
   // Load saved color theme
   await loadTheme()
 
@@ -122,7 +127,7 @@ onMounted(async () => {
         volume: 0.5
       })
 
-      await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
+      if (!isMuted.value) await NativeAudio.loop({ assetId: SPLASH_AUDIO_ID })
       isAudioInitialized.value = true
     } catch (error) {
       console.log('iOS audio initialization error:', error)
@@ -140,7 +145,7 @@ onMounted(async () => {
 
       // Try to play, but it might fail due to autoplay policy
       try {
-        await splashAudio.play()
+        if (!isMuted.value) await splashAudio.play()
         isAudioInitialized.value = true
       } catch (playError) {
         console.log('Autoplay prevented, will start on user interaction')
@@ -169,6 +174,7 @@ onMounted(async () => {
 
 const toggleMute = async () => {
   isMuted.value = !isMuted.value
+  Preferences.set({ key: 'music_muted', value: isMuted.value ? 'true' : 'false' })
   // Note: tickSoundMuted is separate - music button only controls music
 
   if (isIOS && isCapacitor) {
@@ -258,6 +264,9 @@ const isWaiting = computed(() => gameStatus.value === 'waiting' && (onlineGame.r
 const isPlaying = computed(() => gameStatus.value === 'playing')
 const isFinished = computed(() => gameStatus.value === 'finished')
 
+// True when the game was initiated via a lobby challenge (not manual room code entry)
+const fromLobbyChallenge = ref(false)
+
 // Opponent disconnection countdown
 const reconnectSecondsLeft = ref(0)
 let reconnectCountdownTimer: number | null = null
@@ -332,14 +341,17 @@ const handleCreateOfflineGame = (playerName: string, difficulty: AIDifficulty) =
 
 // Online game handlers with userId
 const handleCreateRoom = (playerName: string) => {
+  fromLobbyChallenge.value = false
   onlineGame.createRoom(playerName, auth.user.value?.id)
 }
 
 const handleCreateAIGame = (playerName: string, difficulty: AIDifficulty) => {
+  fromLobbyChallenge.value = false
   onlineGame.createAIGame(playerName, difficulty, auth.user.value?.id)
 }
 
 const handleJoinRoom = (roomCode: string, playerName: string) => {
+  fromLobbyChallenge.value = false
   onlineGame.joinRoom(roomCode, playerName, auth.user.value?.id)
 }
 
@@ -368,7 +380,11 @@ const handlePlayerLobbyCreateAIGame = (playerName: string, difficulty: AIDifficu
 // When a room code arrives while in the PlayerLobby (challenge accepted), navigate to game room
 watch(() => onlineGame.roomCode.value, (code) => {
   if (code && showPlayerLobby.value) {
+    fromLobbyChallenge.value = true
     showPlayerLobby.value = false
+  }
+  if (!code) {
+    fromLobbyChallenge.value = false
   }
 })
 
@@ -1122,8 +1138,8 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           </div>
         </div>
 
-        <!-- Error Message (only show on home page, not on board) -->
-        <div v-if="gameMode !== 'classic' && onlineGame.error.value && !isPlaying && !isFinished" class="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+        <!-- Error Message (only show on home page, not on board or player lobby) -->
+        <div v-if="gameMode !== 'classic' && onlineGame.error.value && !isPlaying && !isFinished && !showPlayerLobby" class="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
           <p class="text-red-700 font-medium mb-3">{{ onlineGame.error.value }}</p>
           <button
             @click="handleForceReset"
@@ -1163,6 +1179,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           :game-starting="onlineGame.gameStarting.value"
           :is-connected="isConnected"
           :authenticated-username="auth.profile.value?.username || null"
+          :from-lobby-challenge="fromLobbyChallenge"
           @create-room="handleCreateRoom"
           @createAIGame="handleCreateAIGame"
           @createOfflineGame="handleCreateOfflineGame"

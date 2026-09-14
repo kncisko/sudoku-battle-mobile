@@ -488,6 +488,10 @@ export function useSocket() {
       opponentDisconnected.value = false
       reconnectDeadline.value = null
 
+      // Clear room identity immediately so a reconnect won't request game state for a deleted room
+      roomCode.value = null
+      myPlayerId.value = null
+
       // Clear timer when game ends
       clearTurnTimer()
 
