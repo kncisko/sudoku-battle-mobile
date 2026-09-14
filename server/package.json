@@ -8,9 +8,9 @@
     "start": "node dist/server/src/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
-    
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@supabase/supabase-js": "^2.86.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

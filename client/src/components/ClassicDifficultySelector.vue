@@ -56,7 +56,7 @@
       <!-- Loading indicator -->
       <div v-if="loading" class="flex items-center justify-center gap-2 py-2">
         <div class="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
-        <span class="text-sm" style="color: var(--color-text); opacity: 0.7">Loading photo...</span>
+        <span class="text-sm" style="color: var(--color-text); opacity: 0.7">{{ loadingMessage }}</span>
       </div>
 
       <!-- Error -->
@@ -80,16 +80,21 @@
 import { ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 
-defineEmits<{
+const emit = defineEmits<{
   'select-difficulty': [difficulty: 'easy' | 'medium' | 'hard']
+  'scan-puzzle': [grid: number[][]]
   'back': []
 }>()
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
+
 const loading = ref(false)
+const loadingMessage = ref('Loading photo...')
 const photoError = ref<string | null>(null)
 
 async function pickPhoto(source: 'camera' | 'gallery') {
   loading.value = true
+  loadingMessage.value = 'Loading photo...'
   photoError.value = null
   try {
     const photo = await Camera.getPhoto({
@@ -106,9 +111,26 @@ async function pickPhoto(source: 'camera' | 'gallery') {
       return
     }
 
-    // Step 1: confirm we get the image back
-    console.log('📷 Photo captured, base64 length:', photo.dataUrl.length)
-    console.log('📷 Data URL prefix:', photo.dataUrl.substring(0, 50))
+    console.log('📷 Photo captured, sending to server...')
+    loadingMessage.value = 'Scanning puzzle...'
+
+    const response = await fetch(`${SERVER_URL}/scan-sudoku`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageDataUrl: photo.dataUrl })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      photoError.value = data.error || 'Failed to scan puzzle.'
+      console.error('Scan error:', data)
+      return
+    }
+
+    console.log('✅ Grid extracted:', data.grid)
+    emit('scan-puzzle', data.grid)
+
   } catch (err: any) {
     if (!err?.message?.includes('cancelled') && !err?.message?.includes('cancel')) {
       photoError.value = 'Failed to load photo. Please try again.'
