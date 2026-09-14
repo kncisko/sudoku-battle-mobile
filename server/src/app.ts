@@ -9,6 +9,7 @@ import { clearRoomColors } from './game/ColorSchemes.js';
 import { supabase, isSupabaseConfigured, withTimeout } from './lib/supabase.js';
 import { Lobby } from './game/Lobby.js';
 import { ChallengeManager } from './game/ChallengeManager.js';
+import { validateGrid } from './game/SudokuValidator.js';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -889,7 +890,14 @@ Example format:
       return res.status(422).json({ error: 'Grid contains invalid values' });
     }
 
-    console.log(`[scan-sudoku] Grid extracted successfully`);
+    // Validate: legal sudoku + unique solution
+    const validation = validateGrid(grid);
+    if (!validation.valid) {
+      console.log(`[scan-sudoku] Validation failed: ${validation.reason}`);
+      return res.status(422).json({ error: validation.reason, grid });
+    }
+
+    console.log(`[scan-sudoku] Grid extracted and validated successfully`);
     return res.json({ grid });
 
   } catch (err: any) {

@@ -510,9 +510,12 @@ const handleClassicDifficultySelect = (difficulty: 'easy' | 'medium' | 'hard') =
   gameModeSelected.value = true
 }
 
-// Scanned puzzle handler — Step 2: log grid, full wiring comes in Step 4
-const handleScanPuzzle = (grid: number[][]) => {
+// Scanned puzzle handler — full wiring comes in Step 4
+const handleScanPuzzle = (grid: number[][], validationError: string | null) => {
   console.log('🧩 Scanned grid received in App.vue:', JSON.stringify(grid))
+  if (validationError) {
+    console.warn('⚠️ Validation error:', validationError)
+  }
   // TODO Step 4: load grid into classicGame
 }
 
@@ -854,7 +857,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <ClassicDifficultySelector
     v-if="!showSplash && !gameModeSelected && showClassicDifficulty"
     @select-difficulty="handleClassicDifficultySelect"
-    @scan-puzzle="handleScanPuzzle"
+    @scan-puzzle="(grid, err) => handleScanPuzzle(grid, err)"
     @back="handleBackFromDifficulty"
   />
 

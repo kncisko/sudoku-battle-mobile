@@ -82,7 +82,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 
 const emit = defineEmits<{
   'select-difficulty': [difficulty: 'easy' | 'medium' | 'hard']
-  'scan-puzzle': [grid: number[][]]
+  'scan-puzzle': [grid: number[][], validationError: string | null]
   'back': []
 }>()
 
@@ -122,14 +122,15 @@ async function pickPhoto(source: 'camera' | 'gallery') {
 
     const data = await response.json()
 
-    if (!response.ok) {
+    if (!response.ok && !data.grid) {
       photoError.value = data.error || 'Failed to scan puzzle.'
       console.error('Scan error:', data)
       return
     }
 
     console.log('✅ Grid extracted:', data.grid)
-    emit('scan-puzzle', data.grid)
+    // Pass grid even if invalid — App.vue will show it with the error message
+    emit('scan-puzzle', data.grid, data.error || null)
 
   } catch (err: any) {
     if (!err?.message?.includes('cancelled') && !err?.message?.includes('cancel')) {
