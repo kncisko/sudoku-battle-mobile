@@ -77,6 +77,32 @@ function countSolutions(grid: number[][], limit = 2): number {
 }
 
 /**
+ * Backtracking solver that returns the completed grid, or null if unsolvable.
+ * Mutates a deep copy internally — the original grid is not modified.
+ */
+export function solveGrid(grid: number[][]): number[][] | null {
+  const g = grid.map(row => [...row]);
+
+  function solve(): boolean {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (g[r][c] === 0) {
+          for (let d = 1; d <= 9; d++) {
+            g[r][c] = d;
+            if (isLegal(g) && solve()) return true;
+            g[r][c] = 0;
+          }
+          return false;
+        }
+      }
+    }
+    return true; // no empty cells
+  }
+
+  return solve() ? g : null;
+}
+
+/**
  * Full validation: legal check + unique solution check.
  */
 export function validateGrid(grid: number[][]): ValidationResult {

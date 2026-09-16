@@ -14,6 +14,7 @@ interface Props {
   enableNotes?: boolean  // Enable notes mode for Classic Sudoku
   canUndo?: boolean      // Whether undo is available (Classic Sudoku)
   inlineNumpad?: boolean // Classic Sudoku: permanent numpad row instead of popup
+  isFailed?: boolean     // Classic Sudoku: all cells filled but solution is wrong
 }
 
 const props = defineProps<Props>()
@@ -34,6 +35,7 @@ const showResetConfirm = ref(false)  // Show reset confirmation dialog
 const CLICK_SOUND_ID = 'click_sound'
 const WINDUP_SOUND_ID = 'windup_sound'
 const DING_SOUND_ID = 'ding_sound'
+const ERROR_SOUND_ID = 'error_sound'
 
 const isCapacitor = Capacitor.isNativePlatform()
 
@@ -64,6 +66,14 @@ onMounted(async () => {
         isUrl: false,
         volume: 0.5
       })
+
+      await NativeAudio.preload({
+        assetId: ERROR_SOUND_ID,
+        assetPath: 'public/assets/soundfx/error.wav',
+        audioChannelNum: 1,
+        isUrl: false,
+        volume: 0.6
+      })
     } catch (error) {
       console.log('Sound effects preload error:', error)
     }
@@ -76,6 +86,7 @@ onUnmounted(async () => {
       await NativeAudio.unload({ assetId: CLICK_SOUND_ID })
       await NativeAudio.unload({ assetId: WINDUP_SOUND_ID })
       await NativeAudio.unload({ assetId: DING_SOUND_ID })
+      await NativeAudio.unload({ assetId: ERROR_SOUND_ID })
     } catch (error) {
       console.log('Sound effects cleanup error:', error)
     }
@@ -126,6 +137,17 @@ watch(() => props.revealedCell, (newCell) => {
 watch(() => props.lastLockedCell, (newCell) => {
   if (newCell) {
     playDingSound()
+  }
+})
+
+// Play error sound when Classic Sudoku solution is wrong
+watch(() => props.isFailed, async (failed) => {
+  if (failed && isCapacitor) {
+    try {
+      await NativeAudio.play({ assetId: ERROR_SOUND_ID })
+    } catch {
+      // ignore
+    }
   }
 })
 

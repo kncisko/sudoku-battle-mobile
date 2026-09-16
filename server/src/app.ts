@@ -3,15 +3,11 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import Anthropic from '@anthropic-ai/sdk';
 import { GameRoom } from './game/GameRoom.js';
 import { clearRoomColors } from './game/ColorSchemes.js';
 import { supabase, isSupabaseConfigured, withTimeout } from './lib/supabase.js';
 import { Lobby } from './game/Lobby.js';
 import { ChallengeManager } from './game/ChallengeManager.js';
-import { validateGrid } from './game/SudokuValidator.js';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export const app = express();
 export const httpServer = createServer(app);
@@ -834,80 +830,6 @@ io.on('connection', (socket) => {
 let lastHeartbeat = Date.now();
 const heartbeatInterval = setInterval(() => { lastHeartbeat = Date.now(); }, 5000);
 heartbeatInterval.unref(); // don't keep the process alive for this alone
-
-app.post('/scan-sudoku', async (req: any, res: any) => {
-  const { imageDataUrl } = req.body;
-
-  if (!imageDataUrl || typeof imageDataUrl !== 'string') {
-    return res.status(400).json({ error: 'Missing imageDataUrl' });
-  }
-
-  // Extract base64 data and media type from data URL
-  const match = imageDataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
-  if (!match) {
-    return res.status(400).json({ error: 'Invalid image format' });
-  }
-  const mediaType = match[1] as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
-  const base64Data = match[2];
-
-  try {
-    console.log(`[scan-sudoku] Sending image to Claude (${Math.round(base64Data.length / 1024)}KB)`);
-
-    const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64Data }
-          },
-          {
-            type: 'text',
-            text: `Extract the sudoku puzzle from this image. Return ONLY a JSON array of 9 arrays, each containing 9 numbers. Use 0 for empty cells. No explanation, no markdown, just the raw JSON array.
-
-Example format:
-[[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],[8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],[0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]]`
-          }
-        ]
-      }]
-    });
-
-    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
-    console.log(`[scan-sudoku] Claude response: ${text.substring(0, 100)}...`);
-
-    // Parse the grid
-    const grid: number[][] = JSON.parse(text);
-
-    // Basic shape validation
-    if (!Array.isArray(grid) || grid.length !== 9 || grid.some(row => !Array.isArray(row) || row.length !== 9)) {
-      return res.status(422).json({ error: 'Claude returned an invalid grid shape' });
-    }
-
-    // Ensure all values are digits 0-9
-    if (grid.some(row => row.some(cell => typeof cell !== 'number' || cell < 0 || cell > 9))) {
-      return res.status(422).json({ error: 'Grid contains invalid values' });
-    }
-
-    // Validate: legal sudoku + unique solution
-    const validation = validateGrid(grid);
-    if (!validation.valid) {
-      console.log(`[scan-sudoku] Validation failed: ${validation.reason}`);
-      return res.status(422).json({ error: validation.reason, grid });
-    }
-
-    console.log(`[scan-sudoku] Grid extracted and validated successfully`);
-    return res.json({ grid });
-
-  } catch (err: any) {
-    console.error('[scan-sudoku] Error:', err.message || err);
-    if (err instanceof SyntaxError) {
-      return res.status(422).json({ error: 'Could not parse sudoku grid from image' });
-    }
-    return res.status(500).json({ error: 'Failed to process image' });
-  }
-});
 
 app.get('/health', (_req, res) => {
   const lagMs = Date.now() - lastHeartbeat;

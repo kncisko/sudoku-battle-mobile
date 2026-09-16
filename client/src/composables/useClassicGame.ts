@@ -29,6 +29,7 @@ export function useClassicGame() {
   const startTime = ref<number>(0)
   const isPlaying = ref(false)
   const isCompleted = ref(false)
+  const isFailed = ref(false)
   const currentTime = ref<number>(0) // For triggering reactivity
   const undoStack = ref<UndoEntry[]>([]) // Undo history stack
 
@@ -108,6 +109,9 @@ export function useClassicGame() {
       value: value,
       notes: value !== null ? [] : (cell.notes || [])
     }
+
+    // Clear failed state when player edits a cell
+    isFailed.value = false
 
     // Check if puzzle is completed (only validate when all cells are filled)
     checkCompletion()
@@ -243,8 +247,8 @@ export function useClassicGame() {
           time: Math.floor(elapsed / 1000) + 's'
         })
       } else {
-        // Silent failure - no feedback, user must find their own mistakes
-        console.log('❌ Solution contains errors - check for duplicates in rows, columns, or 3x3 boxes')
+        isFailed.value = true
+        setTimeout(() => { isFailed.value = false }, 3000)
       }
     }
   }
@@ -297,6 +301,7 @@ export function useClassicGame() {
     currentTime.value = 0
     isPlaying.value = false
     isCompleted.value = false
+    isFailed.value = false
     undoStack.value = []
   }
 
@@ -314,6 +319,7 @@ export function useClassicGame() {
     difficulty,
     isPlaying,
     isCompleted,
+    isFailed,
     elapsedTime,
     canUndo,
     startGame,

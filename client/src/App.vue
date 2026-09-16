@@ -510,15 +510,6 @@ const handleClassicDifficultySelect = (difficulty: 'easy' | 'medium' | 'hard') =
   gameModeSelected.value = true
 }
 
-// Scanned puzzle handler — full wiring comes in Step 4
-const handleScanPuzzle = (grid: number[][], validationError: string | null) => {
-  console.log('🧩 Scanned grid received in App.vue:', JSON.stringify(grid))
-  if (validationError) {
-    console.warn('⚠️ Validation error:', validationError)
-  }
-  // TODO Step 4: load grid into classicGame
-}
-
 // Back from difficulty selector
 const handleBackFromDifficulty = () => {
   showClassicDifficulty.value = false
@@ -857,8 +848,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
   <ClassicDifficultySelector
     v-if="!showSplash && !gameModeSelected && showClassicDifficulty"
     @select-difficulty="handleClassicDifficultySelect"
-    @scan-puzzle="(grid, err) => handleScanPuzzle(grid, err)"
-    @back="handleBackFromDifficulty"
+@back="handleBackFromDifficulty"
   />
 
   <!-- Top Bar Buttons (only show on home page, not during Classic game) -->
@@ -1062,6 +1052,15 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
             </div>
           </div>
 
+          <!-- Error banner: all cells filled but solution is wrong (floating overlay) -->
+          <div
+            v-if="classicGame.isFailed.value"
+            class="fixed left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-center text-sm font-semibold shadow-lg"
+            style="top: 50%; transform: translate(-50%, -50%); background-color: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; max-width: 280px; animation: bannerFadeOut 3s forwards;"
+          >
+            There are errors in your solution — look for duplicate numbers in rows, columns or boxes.
+          </div>
+
           <!-- Sudoku Board with Notes -->
           <SudokuBoard
             v-if="!classicGame.isCompleted.value"
@@ -1072,6 +1071,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
             :enable-notes="true"
             :inline-numpad="true"
             :can-undo="classicGame.canUndo.value"
+            :is-failed="classicGame.isFailed.value"
             @make-move="(row, col, value) => classicGame.makeMove(row, col, value)"
             @toggle-note="(row, col, note) => classicGame.toggleNote(row, col, note)"
             @undo="classicGame.undo()"
@@ -1415,6 +1415,11 @@ body {
 </style>
 
 <style scoped>
+@keyframes bannerFadeOut {
+  0%, 66.7% { opacity: 1; }   /* 2s fully visible */
+  100% { opacity: 0; }         /* fade out over 1s */
+}
+
 /* Flash effect for player card when turn changes */
 @keyframes flashCard {
   0% {
