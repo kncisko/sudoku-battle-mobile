@@ -1059,7 +1059,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
             </div>
             <div class="text-center">
               <p class="text-xs font-semibold uppercase" style="color: var(--color-text); opacity: 0.6">Time</p>
-              <p class="text-lg font-bold" style="color: var(--color-accent)">{{ Math.floor(classicGame.elapsedTime.value / 60) }}:{{ (classicGame.elapsedTime.value % 60).toString().padStart(2, '0') }}</p>
+              <p class="text-lg font-bold" style="color: var(--color-accent); font-variant-numeric: tabular-nums;">{{ Math.floor(classicGame.elapsedTime.value / 60) }}:{{ (classicGame.elapsedTime.value % 60).toString().padStart(2, '0') }}</p>
             </div>
           </div>
 
