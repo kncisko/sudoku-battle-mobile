@@ -23,6 +23,7 @@ import { NativeAudio } from '@capacitor-community/native-audio'
 import { Capacitor } from '@capacitor/core'
 import { KeepAwake } from '@capacitor-community/keep-awake'
 import { Preferences } from '@capacitor/preferences'
+import confetti from 'canvas-confetti'
 
 // Splash screen state
 const showSplash = ref(true)
@@ -762,6 +763,16 @@ watch([isPlaying, () => classicGame.isPlaying.value], async ([battlePlaying, cla
 })
 
 // Watch for Classic Sudoku game status changes to switch music
+watch(() => classicGame.isCompleted.value, (isCompleted) => {
+  if (!isCompleted) return
+  // Burst from both top corners, then a final center shower
+  confetti({ particleCount: 80, angle: 60, spread: 70, origin: { x: 0, y: 0.3 } })
+  confetti({ particleCount: 80, angle: 120, spread: 70, origin: { x: 1, y: 0.3 } })
+  setTimeout(() => {
+    confetti({ particleCount: 120, spread: 100, origin: { x: 0.5, y: 0.4 } })
+  }, 400)
+})
+
 watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], async ([isPlaying, isCompleted]) => {
   // Only apply music changes when in Classic mode
   if (gameMode.value !== 'classic') return
@@ -1081,7 +1092,7 @@ watch([() => classicGame.isPlaying.value, () => classicGame.isCompleted.value], 
           <!-- Completion Screen -->
           <div v-if="classicGame.isCompleted.value" class="mt-4 p-6 bg-gradient-to-r from-green-100 to-emerald-200 rounded-lg border-2 border-green-400">
             <div class="animate-fade-in text-center">
-              <h2 class="text-3xl font-bold mb-3">🎉 Puzzle Solved!</h2>
+              <h2 class="text-3xl font-bold mb-3" style="color: #4c1d95;">🎉 Puzzle Solved!</h2>
               <p class="text-lg text-gray-700 mb-4">Congratulations! You completed the puzzle.</p>
 
               <div class="flex justify-center gap-6 mb-4">
